@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RentalRide — Find the Best Car</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 32px; }
+  h1 {
+    font-size: 32px;
+    color: #1e40af;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #6b7280; font-size: 14px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #1e40af;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .slider-row { margin-bottom: 20px; }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .slider-label { font-size: 14px; color: #374151; }
+  .slider-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e40af;
+    background: #eff6ff;
+    padding: 2px 10px;
+    border-radius: 12px;
+    min-width: 50px;
+    text-align: center;
+  }
+  input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #e5e7eb;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1e40af;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(30,64,175,0.3);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #1e40af;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  button {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: #1e40af;
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #1e3a8a;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(30,64,175,0.3);
+  }
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+  }
+  .btn-secondary:hover { background: #f3f4f6; }
+
+  /* RESULT CARD */
+  .result { min-height: 400px; display: flex; flex-direction: column; }
+  .result-empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
+    border: 2px dashed #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+  }
+  .result-card { animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .car-photo {
+    width: 100%;
+    height: 200px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+  .car-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 4px;
+  }
+  .car-score {
+    font-size: 13px;
+    color: #1e40af;
+    margin-bottom: 16px;
+  }
+  .car-specs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .spec {
+    background: #ffffff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+  }
+  .spec-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .spec-value { font-size: 16px; color: #111827; font-weight: 600; margin-top: 2px; }
+
+  .badge-fuel {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .fuel-electric { background: #d1fae5; color: #065f46; }
+  .fuel-hybrid   { background: #fef3c7; color: #92400e; }
+  .fuel-petrol   { background: #fed7aa; color: #9a3412; }
+  .fuel-diesel   { background: #dbeafe; color: #1e40af; }
+
+  .loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    color: #6b7280;
+  }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid #e5e7eb;
+    border-top-color: #1e40af;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 12px;
+    border: 1px solid #fecaca;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🚗 RentalRide</h1>
+    <p class="subtitle">Find the best car by 7 criteria via Stylus on Robinhood Chain</p>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT PANEL: WEIGHTS -->
+    <div class="panel">
+      <h2>⚖️ Criteria Weights</h2>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">💰 Price (lower is better)</span>
+          <span class="slider-value" id="val-price">10</span>
+        </div>
+        <input type="range" id="w-price" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">🛣️ Mileage (lower is better)</span>
+          <span class="slider-value" id="val-mileage">10</span>
+        </div>
+        <input type="range" id="w-mileage" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">⚡ Power (higher is better)</span>
+          <span class="slider-value" id="val-power">10</span>
+        </div>
+        <input type="range" id="w-power" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">⭐ Rating (higher is better)</span>
+          <span class="slider-value" id="val-rating">10</span>
+        </div>
+        <input type="range" id="w-rating" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">📅 Year (newer is better)</span>
+          <span class="slider-value" id="val-year">10</span>
+        </div>
+        <input type="range" id="w-year" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">✨ Interior Condition (higher is better)</span>
+          <span class="slider-value" id="val-interior">10</span>
+        </div>
+        <input type="range" id="w-interior" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">🔋 Fuel Type (electric is preferred)</span>
+          <span class="slider-value" id="val-fuel">10</span>
+        </div>
+        <input type="range" id="w-fuel" min="0" max="1000" value="10" step="10">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-secondary" onclick="resetWeights()">Reset</button>
+        <button class="btn-primary" id="btn-search" onclick="findBestCar()">Find Best Car</button>
+      </div>
+
+      <div id="error" class="error" style="display:none;"></div>
+    </div>
+
+    <!-- RIGHT PANEL: RESULT -->
+    <div class="panel result">
+      <h2>🏆 Result</h2>
+      <div id="result-container" class="result-empty">
+        Set the weights on the left<br>and click "Find Best Car"
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = '';
+
+const sliders = ['price', 'mileage', 'power', 'rating', 'year', 'interior', 'fuel'];
+sliders.forEach(name => {
+  const el = document.getElementById('w-' + name);
+  const val = document.getElementById('val-' + name);
+  el.addEventListener('input', () => { val.textContent = el.value; });
+});
+
+function resetWeights() {
+  sliders.forEach(name => {
+    document.getElementById('w-' + name).value = 10;
+    document.getElementById('val-' + name).textContent = 10;
+  });
+  const rc = document.getElementById('result-container');
+  rc.innerHTML = 'Set the weights on the left<br>and click "Find Best Car"';
+  rc.className = 'result-empty';
+  document.getElementById('error').style.display = 'none';
+}
+
+async function findBestCar() {
+  const btn = document.getElementById('btn-search');
+  const errDiv = document.getElementById('error');
+  const resultDiv = document.getElementById('result-container');
+
+  errDiv.style.display = 'none';
+  btn.disabled = true;
+
+  resultDiv.className = 'loading';
+  resultDiv.innerHTML = '<div class="spinner"></div><div>Loading car list...</div>';
+
+  try {
+    const listResp = await fetch(API_BASE + '/api/cars/list');
+    if (!listResp.ok) throw new Error('Failed to load car list: ' + listResp.status);
+    const cars = await listResp.json();
+    const carIds = cars.map(c => c.carId);
+    if (carIds.length === 0) throw new Error('No cars in the contract');
+
+    resultDiv.innerHTML = '<div class="spinner"></div><div>Finding the best car via Stylus...</div>';
+
+    const payload = {
+      carIds: carIds,
+      weightPrice:    parseInt(document.getElementById('w-price').value),
+      weightMileage:  parseInt(document.getElementById('w-mileage').value),
+      weightPower:    parseInt(document.getElementById('w-power').value),
+      weightRating:   parseInt(document.getElementById('w-rating').value),
+      weightYear:     parseInt(document.getElementById('w-year').value),
+      weightInterior: parseInt(document.getElementById('w-interior').value),
+      weightFuel:     parseInt(document.getElementById('w-fuel').value),
+    };
+
+    const resp = await fetch(API_BASE + '/api/cars/find-best', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error('Search failed: ' + resp.status);
+    const best = await resp.json();
+
+    const car = cars.find(c => c.carId === best.bestCarId);
+    if (!car) throw new Error('Car ID ' + best.bestCarId + ' not found');
+
+    renderResult(car, best.bestCarScore);
+  } catch (e) {
+    errDiv.textContent = '❌ ' + e.message;
+    errDiv.style.display = 'block';
+    resultDiv.className = 'result-empty';
+    resultDiv.innerHTML = 'An error occurred. See message on the left.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function carEmoji(brand) {
+  const b = brand.toLowerCase();
+  if (b.includes('tesla') || b.includes('lucid') || b.includes('rivian') || b.includes('polestar')) return '⚡';
+  if (b.includes('porsche') || b.includes('ferrari') || b.includes('lamborghini') || b.includes('mclaren')) return '🏎️';
+  if (b.includes('bugatti') || b.includes('koenigsegg') || b.includes('pagani')) return '🚀';
+  if (b.includes('bmw') || b.includes('audi') || b.includes('mercedes') || b.includes('jaguar')) return '🚙';
+  if (b.includes('toyota') || b.includes('honda') || b.includes('nissan') || b.includes('mazda')) return '🚗';
+  if (b.includes('ford') || b.includes('chevrolet') || b.includes('dodge')) return '🛻';
+  return '🚘';
+}
+
+function fuelClass(fuel) {
+  const f = (fuel || '').toLowerCase();
+  if (f === 'electric') return 'fuel-electric';
+  if (f === 'hybrid') return 'fuel-hybrid';
+  if (f === 'petrol') return 'fuel-petrol';
+  if (f === 'diesel') return 'fuel-diesel';
+  return '';
+}
+
+function renderResult(car, score) {
+  const div = document.getElementById('result-container');
+  div.className = 'result-card';
+  div.innerHTML = `
+    <div class="car-photo">${carEmoji(car.brand)}</div>
+    <div class="car-name">${escapeHtml(car.brand)}</div>
+    <div class="car-score">ID: ${car.carId} · Score: ${Number(score).toLocaleString('en-US')}</div>
+    <div class="car-specs">
+      <div class="spec">
+        <div class="spec-label">💰 Price/day</div>
+        <div class="spec-value">${car.pricePerDay} USDC</div>
+      </div>
+      <div class="spec">
+        <div class="spec-label">🛣️ Mileage</div>
+        <div class="spec-value">${car.mileage.toLocaleString('en-US')} km</div>
+      </div>
+      <div class="spec">
+        <div class="spec-label">⚡ Power</div>
+        <div class="spec-value">${car.enginePower} hp</div>
+      </div>
+      <div class="spec">
+        <div class="spec-label">📅 Year</div>
+        <div class="spec-value">${car.year}</div>
+      </div>
+      <div class="spec">
+        <div class="spec-label">✨ Interior</div>
+        <div class="spec-value">${car.interiorScore}/100</div>
+      </div>
+      <div class="spec">
+        <div class="spec-label">⭐ Rating</div>
+        <div class="spec-value">${(car.rating / 100).toFixed(1)}/5.0</div>
+      </div>
+      <div class="spec" style="grid-column: 1 / -1;">
+        <div class="spec-label">🔋 Fuel Type</div>
+        <div class="spec-value">
+          <span class="badge-fuel ${fuelClass(car.fuelType)}">${car.fuelType}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+</script>
+</body>
+</html>

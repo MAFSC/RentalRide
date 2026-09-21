@@ -1,0 +1,28 @@
+server:
+  port: 8080
+  address: 0.0.0.0
+  tomcat:
+    connection-timeout: 300000
+    keep-alive-timeout: 300000
+
+spring:
+  application:
+    name: rentalride-api
+
+# Блокчейн-конфигурация
+blockchain:
+  # Robinhood Chain Testnet RPC
+  rpc-url: https://rpc.testnet.chain.robinhood.com
+  # Приватный ключ кошелька (НЕ КОММИТИТЬ В GIT!)
+  # Можно переопределить через переменную окружения BLOCKCHAIN_PRIVATE_KEY
+  private-key: ${BLOCKCHAIN_PRIVATE_KEY:CHANGE_ME_BEFORE_RUN}
+  # Адрес задеплоенного CarBridge
+  car-bridge-address: "0x484cB35720a9bB6fcEA175e041A221408d01eC02"
+  # Gas настройки (для view-вызовов не нужны, но на всякий случай)
+  gas-price: 1000000000
+  gas-limit: 6721975
+
+logging:
+  level:
+    org.web3j: INFO
+    com.rentalride.api: DEBUG

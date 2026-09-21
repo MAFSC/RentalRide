@@ -1,0 +1,35 @@
+# Секреты
+.private_key
+secrets/
+*.key
+*.pem
+
+# Maven
+java-api/target/
+*.jar.original
+
+# Foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Rust / Stylus
+stylus/**/target/
+stylus/**/*.wasm
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+app.log
