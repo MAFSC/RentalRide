@@ -30,6 +30,7 @@ Unlike traditional aggregators (Trivago, Booking), where a central server decide
 
 1)Frontend (HTML + JS)                                     
 http://localhost:8080/                                  
+      
           │ REST API
           ▼
 
