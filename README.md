@@ -28,30 +28,30 @@ Unlike traditional aggregators (Trivago, Booking), where a central server decide
 
 ### Architecture
 ┌──────────────────────────────────────────────────────────┐
-│ Frontend (HTML + JS) │
-│ http://localhost:8080/ │
+│ Frontend (HTML + JS)                                     │
+│ http://localhost:8080/                                   │ 
 └─────────────────────┬────────────────────────────────────┘
-│ REST API
-▼
+                      │ REST API
+                      ▼
 ┌──────────────────────────────────────────────────────────┐
-│ Spring Boot 3.2.5 (Java 21) │
-│ CarController → CarRankingService → Web3j │
+│ Spring Boot 3.2.5 (Java 21)                              │
+│ CarController → CarRankingService → Web3j                │
 └─────────────────────┬────────────────────────────────────┘
-│ eth_call
-▼
+                      │ eth_call
+                      ▼
 ┌──────────────────────────────────────────────────────────┐
-│ CarBridge.sol (Solidity 0.8.23) │
-│ 0x484cB35720a9bB6fcEA175e041A221408d01eC02 │
-│ - Stores 103 cars │
-│ - Builds flat array [price, mileage, power, ...] │
+│ CarBridge.sol (Solidity 0.8.23)                          │
+│ 0x484cB35720a9bB6fcEA175e041A221408d01eC02               │
+│ - Stores 103 cars                                        │
+│ - Builds flat array [price, mileage, power, ...]         │
 └─────────────────────┬────────────────────────────────────┘
-│ staticcall
-▼
+                      │ staticcall
+                      ▼
 ┌──────────────────────────────────────────────────────────┐
-│ car_ranker (Stylus / Rust / WASM) │
-│ 0xab304a3c48fd38492396d3719a8b2d16def14b8c │
-│ - 7 criteria ranking │
-│ - Size: 11.9 KB │
+│ car_ranker (Stylus / Rust / WASM)                        │
+│ 0xab304a3c48fd38492396d3719a8b2d16def14b8c               │
+│ - 7 criteria ranking                                     │
+│ - Size: 11.9 Kb                                          │
 └──────────────────────────────────────────────────────────┘
 
 ### Ranking Criteria
