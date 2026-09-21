@@ -1,0 +1,14 @@
+{
+  "network": "Robinhood Chain Testnet",
+  "chainId": 46630,
+  "rpc": "https://rpc.testnet.chain.robinhood.com",
+  "stylus_car_ranker": "0x7cf39e42a1266343e068b0e48600f27488d7efe9",
+  "solidity_car_bridge": "0xc7634280b40BC41Bb6B134FB7a82d871BFBe06F9",
+  "deployer": "0xCc5640D6b3C13b7e21dfcb50db1752bF9c19F43b",
+  "api_endpoint": "http://194.5.152.242:8080/api/cars/find-best",
+  "test_cars": [
+    {"id": 0, "brand": "Toyota Camry", "price": 50, "mileage": 50000, "power": 200, "rating": 450},
+    {"id": 1, "brand": "BMW X5", "price": 80, "mileage": 80000, "power": 300, "rating": 420},
+    {"id": 2, "brand": "Tesla Model 3", "price": 70, "mileage": 20000, "power": 350, "rating": 480}
+  ]
+}
