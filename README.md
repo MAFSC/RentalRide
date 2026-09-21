@@ -27,32 +27,29 @@ Unlike traditional aggregators (Trivago, Booking), where a central server decide
 | Can the result be faked | ✅ Yes | ❌ No, result is on-chain |
 
 ### Architecture
-┌──────────────────────────────────────────────────────────┐
-│ Frontend (HTML + JS)                                     │
-│ http://localhost:8080/                                   │ 
-└─────────────────────┬────────────────────────────────────┘
-                      │ REST API
-                      ▼
-┌──────────────────────────────────────────────────────────┐
-│ Spring Boot 3.2.5 (Java 21)                              │
-│ CarController → CarRankingService → Web3j                │
-└─────────────────────┬────────────────────────────────────┘
-                      │ eth_call
-                      ▼
-┌──────────────────────────────────────────────────────────┐
-│ CarBridge.sol (Solidity 0.8.23)                          │
-│ 0x484cB35720a9bB6fcEA175e041A221408d01eC02               │
-│ - Stores 103 cars                                        │
-│ - Builds flat array [price, mileage, power, ...]         │
-└─────────────────────┬────────────────────────────────────┘
-                      │ staticcall
-                      ▼
-┌──────────────────────────────────────────────────────────┐
-│ car_ranker (Stylus / Rust / WASM)                        │
-│ 0xab304a3c48fd38492396d3719a8b2d16def14b8c               │
-│ - 7 criteria ranking                                     │
-│ - Size: 11.9 Kb                                          │
-└──────────────────────────────────────────────────────────┘
+
+1)Frontend (HTML + JS)                                     
+http://localhost:8080/                                  
+          │ REST API
+          ▼
+
+2) Spring Boot 3.2.5 (Java 21)                
+CarController → CarRankingService → Web3j  
+
+          │ eth_call
+          ▼
+3) CarBridge.sol (Solidity 0.8.23)                         
+0x484cB35720a9bB6fcEA175e041A221408d01eC02              
+- Stores 103 cars                                       
+- Builds flat array [price, mileage, power, ...]        
+
+          │ staticcall
+          ▼
+4) car_ranker (Stylus / Rust / WASM)                        
+0xab304a3c48fd38492396d3719a8b2d16def14b8c               
+- 7 criteria ranking                                    
+- Size: 11.9 Kb                                         
+
 
 ### Ranking Criteria
 
@@ -83,63 +80,6 @@ The Stylus contract computes a weighted score based on **7 criteria**:
 
 #### 1. Stylus contract (Rust)
 
-```bash
-cd stylus/car_ranker_v2
-cargo stylus check --endpoint https://rpc.testnet.chain.robinhood.com
-cargo stylus deploy \
-  --endpoint https://rpc.testnet.chain.robinhood.com \
-  --private-key-path .private_key
-
-#### 2. Solidity bridge
-cd contracts
-forge build
-forge create src/CarBridge.sol:CarBridge \
-  --rpc-url https://rpc.testnet.chain.robinhood.com \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --constructor-args <STYLUS_ADDRESS>
-
-3. Spring Boot API
-bash
-
-cd java-api
-export BLOCKCHAIN_PRIVATE_KEY=your_key_here
-mvn clean package -DskipTests
-java -jar target/java-api-0.0.1-SNAPSHOT.jar
-
-4. Open frontend
-text
-
-http://localhost:8080/
-
-REST API
-Method	Endpoint	Description
-GET	/api/cars/health	Blockchain connection check
-GET	/api/cars/list	All cars (cached 5 min)
-GET	/api/cars/{id}	One car by ID
-POST	/api/cars/add	Add new car
-POST	/api/cars/find-best	Find best by 7 criteria
-Example: find-best
-bash
-
-curl -X POST http://localhost:8080/api/cars/find-best \
-  -H "Content-Type: application/json" \
-  -d '{
-    "carIds": [0, 1, 2, 37, 41, 50],
-    "weightPrice": 500,
-    "weightMileage": 300,
-    "weightPower": 200,
-    "weightRating": 400,
-    "weightYear": 100,
-    "weightInterior": 50,
-    "weightFuel": 800
-  }'
-
-Response:
-json
-
-{"bestCarId": 2, "bestCarScore": "49040840"}
-
 Deployed Contracts
 
 Network: Robinhood Chain Testnet (Chain ID 46630)
@@ -148,13 +88,5 @@ Stylus car_ranker	0xab304a3c48fd38492396d3719a8b2d16def14b8c
 Solidity CarBridge	0x484cB35720a9bB6fcEA175e041A221408d01eC02
 Deployer	0xCc5640D6b3C13b7e21dfcb50db1752bF9c19F43b
 Security
-
-    Private key never committed to the repository
-
-    Use environment variable BLOCKCHAIN_PRIVATE_KEY
-
-    Use a separate wallet for testing
-
-    .gitignore excludes .private_key, target/, out/
 
 MIT — see LICENSE.
