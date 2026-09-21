@@ -8,6 +8,7 @@ import com.rentalride.api.dto.FindBestCarResponse;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
@@ -29,10 +30,9 @@ public class CarRankingService {
     private final Credentials credentials;
     private final String carBridgeAddress;
 
-    // Кеш списка машин
     private volatile List<CarDataDto> cachedCars = null;
     private volatile long cacheTimestamp = 0;
-    private static final long CACHE_TTL_MS = 300_000; // 5 минут
+    private static final long CACHE_TTL_MS = 3_600_000L;
     private final Object cacheLock = new Object();
 
     public CarRankingService(
@@ -52,14 +52,26 @@ public class CarRankingService {
                 log.info("Preloading car cache in background...");
                 long start = System.currentTimeMillis();
                 listAllCars();
-                long elapsed = System.currentTimeMillis() - start;
-                log.info("Cache preloaded in {} ms", elapsed);
+                log.info("Cache preloaded in {} ms", System.currentTimeMillis() - start);
             } catch (Exception e) {
                 log.error("Failed to preload cache", e);
             }
         }, "cache-preloader");
         t.setDaemon(true);
         t.start();
+    }
+
+    @Scheduled(fixedDelay = 1_800_000L)
+    public void refreshCache() {
+        try {
+            log.info("Scheduled cache refresh...");
+            cachedCars = null;
+            cacheTimestamp = 0;
+            listAllCars();
+            log.info("Scheduled cache refresh completed");
+        } catch (Exception e) {
+            log.error("Scheduled cache refresh failed", e);
+        }
     }
 
     public Web3j getWeb3j() {
@@ -72,7 +84,6 @@ public class CarRankingService {
 
     public FindBestCarResponse findBestCar(FindBestCarRequest request) throws Exception {
         CarBridge carBridge = loadContract();
-
         List<BigInteger> carIds = request.getCarIds().stream()
                 .map(BigInteger::valueOf)
                 .collect(Collectors.toList());
@@ -88,13 +99,8 @@ public class CarRankingService {
                 BigInteger.valueOf(request.getWeightFuel())
         ).send();
 
-        log.info("findBestCar result: bestCarId={}, score={}",
-                result.component1(), result.component2());
-
-        return new FindBestCarResponse(
-                result.component1().longValue(),
-                result.component2().toString()
-        );
+        log.info("findBestCar: bestCarId={}, score={}", result.component1(), result.component2());
+        return new FindBestCarResponse(result.component1().longValue(), result.component2().toString());
     }
 
     public long addCar(AddCarRequest request) throws Exception {
@@ -111,11 +117,8 @@ public class CarRankingService {
         ).send();
 
         BigInteger count = carBridge.carCount().send();
-
-        // Сбрасываем кеш
         cachedCars = null;
         cacheTimestamp = 0;
-
         return count.longValue() - 1;
     }
 
@@ -145,7 +148,6 @@ public class CarRankingService {
         }
 
         synchronized (cacheLock) {
-            // Проверяем ещё раз — возможно, другой поток уже загрузил
             now = System.currentTimeMillis();
             cached = cachedCars;
             if (cached != null && (now - cacheTimestamp) < CACHE_TTL_MS) {

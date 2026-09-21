@@ -15,18 +15,10 @@
   }
   .container { max-width: 1200px; margin: 0 auto; }
   header { text-align: center; margin-bottom: 32px; }
-  h1 {
-    font-size: 32px;
-    color: #1e40af;
-    margin-bottom: 8px;
-  }
+  h1 { font-size: 32px; color: #1e40af; margin-bottom: 8px; }
   .subtitle { color: #6b7280; font-size: 14px; }
 
-  .layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
+  .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
 
   .panel {
@@ -36,109 +28,60 @@
     border: 1px solid #e5e7eb;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
-  h2 {
-    font-size: 18px;
-    margin-bottom: 16px;
-    color: #1e40af;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  h2 { font-size: 18px; margin-bottom: 16px; color: #1e40af; }
 
   .slider-row { margin-bottom: 20px; }
   .slider-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 8px;
   }
   .slider-label { font-size: 14px; color: #374151; }
   .slider-value {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1e40af;
-    background: #eff6ff;
-    padding: 2px 10px;
-    border-radius: 12px;
-    min-width: 50px;
-    text-align: center;
+    font-size: 13px; font-weight: 600;
+    color: #1e40af; background: #eff6ff;
+    padding: 2px 10px; border-radius: 12px;
+    min-width: 50px; text-align: center;
   }
   input[type="range"] {
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: #e5e7eb;
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
+    width: 100%; height: 6px; border-radius: 3px;
+    background: #e5e7eb; outline: none;
+    -webkit-appearance: none; appearance: none;
   }
   input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #1e40af;
-    cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #1e40af; cursor: pointer;
     box-shadow: 0 2px 6px rgba(30,64,175,0.3);
   }
   input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #1e40af;
-    cursor: pointer;
-    border: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #1e40af; cursor: pointer; border: none;
   }
 
-  .btn-group {
-    display: flex;
-    gap: 12px;
-    margin-top: 20px;
-  }
+  .btn-group { display: flex; gap: 12px; margin-top: 20px; }
   button {
-    flex: 1;
-    padding: 14px 20px;
-    border: none;
-    border-radius: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+    flex: 1; padding: 14px 20px; border: none;
+    border-radius: 10px; font-size: 15px;
+    font-weight: 600; cursor: pointer; transition: all 0.2s;
   }
-  .btn-primary {
-    background: #1e40af;
-    color: #fff;
-  }
+  .btn-primary { background: #1e40af; color: #fff; }
   .btn-primary:hover:not(:disabled) {
-    background: #1e3a8a;
-    transform: translateY(-1px);
+    background: #1e3a8a; transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(30,64,175,0.3);
   }
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-secondary {
-    background: #ffffff;
-    color: #374151;
+    background: #ffffff; color: #374151;
     border: 1px solid #d1d5db;
   }
   .btn-secondary:hover { background: #f3f4f6; }
 
-  /* RESULT CARD */
   .result { min-height: 400px; display: flex; flex-direction: column; }
   .result-empty {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #9ca3af;
-    font-size: 14px;
-    text-align: center;
-    padding: 40px;
-    border: 2px dashed #e5e7eb;
-    border-radius: 12px;
+    flex: 1; display: flex; align-items: center;
+    justify-content: center; color: #9ca3af;
+    font-size: 14px; text-align: center; padding: 40px;
+    border: 2px dashed #e5e7eb; border-radius: 12px;
     background: #ffffff;
   }
   .result-card { animation: fadeIn 0.4s ease; }
@@ -147,48 +90,35 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .car-photo {
-    width: 100%;
-    height: 200px;
-    background: #f3f4f6;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 64px;
-    margin-bottom: 16px;
+    width: 100%; height: 200px; background: #f3f4f6;
+    border-radius: 12px; display: flex;
+    align-items: center; justify-content: center;
+    font-size: 64px; margin-bottom: 16px;
   }
   .car-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 4px;
+    font-size: 24px; font-weight: 700;
+    color: #111827; margin-bottom: 4px;
   }
-  .car-score {
-    font-size: 13px;
-    color: #1e40af;
-    margin-bottom: 16px;
-  }
+  .car-score { font-size: 13px; color: #1e40af; margin-bottom: 16px; }
   .car-specs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   }
   .spec {
-    background: #ffffff;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    background: #ffffff; padding: 10px 14px;
+    border-radius: 8px; border: 1px solid #e5e7eb;
   }
-  .spec-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-  .spec-value { font-size: 16px; color: #111827; font-weight: 600; margin-top: 2px; }
-
+  .spec-label {
+    font-size: 11px; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .spec-value {
+    font-size: 16px; color: #111827;
+    font-weight: 600; margin-top: 2px;
+  }
   .badge-fuel {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
+    display: inline-block; padding: 2px 8px;
+    border-radius: 6px; font-size: 11px;
+    font-weight: 600; text-transform: uppercase;
   }
   .fuel-electric { background: #d1fae5; color: #065f46; }
   .fuel-hybrid   { background: #fef3c7; color: #92400e; }
@@ -196,17 +126,12 @@
   .fuel-diesel   { background: #dbeafe; color: #1e40af; }
 
   .loading {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 16px;
-    color: #6b7280;
+    flex: 1; display: flex; align-items: center;
+    justify-content: center; flex-direction: column;
+    gap: 16px; color: #6b7280;
   }
   .spinner {
-    width: 48px;
-    height: 48px;
+    width: 48px; height: 48px;
     border: 4px solid #e5e7eb;
     border-top-color: #1e40af;
     border-radius: 50%;
@@ -215,13 +140,17 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .error {
-    background: #fee2e2;
-    color: #991b1b;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    margin-top: 12px;
+    background: #fee2e2; color: #991b1b;
+    padding: 12px 16px; border-radius: 8px;
+    font-size: 13px; margin-top: 12px;
     border: 1px solid #fecaca;
+  }
+
+  .timeout-warning {
+    background: #fef3c7; color: #92400e;
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; margin-top: 10px;
+    border: 1px solid #fde68a;
   }
 </style>
 </head>
@@ -298,6 +227,10 @@
         <button class="btn-primary" id="btn-search" onclick="findBestCar()">Find Best Car</button>
       </div>
 
+      <div id="timeout-warning" class="timeout-warning" style="display:none;">
+        ⏳ First request may take 30–60 seconds while the blockchain cache warms up. Please be patient.
+      </div>
+
       <div id="error" class="error" style="display:none;"></div>
     </div>
 
@@ -312,7 +245,15 @@
 </div>
 
 <script>
+// API base — empty means same host. Change to full URL if frontend is on a different domain.
 const API_BASE = '';
+
+// Known car ID range (we have 103 cars: 0..102)
+const CAR_COUNT = 103;
+const ALL_CAR_IDS = Array.from({length: CAR_COUNT}, (_, i) => i);
+
+// Timeout for fetch (90 seconds — blockchain calls can be slow)
+const FETCH_TIMEOUT_MS = 90_000;
 
 const sliders = ['price', 'mileage', 'power', 'rating', 'year', 'interior', 'fuel'];
 sliders.forEach(name => {
@@ -330,30 +271,39 @@ function resetWeights() {
   rc.innerHTML = 'Set the weights on the left<br>and click "Find Best Car"';
   rc.className = 'result-empty';
   document.getElementById('error').style.display = 'none';
+  document.getElementById('timeout-warning').style.display = 'none';
+}
+
+// fetch with timeout
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(url, { ...options, signal: controller.signal });
+    return resp;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function findBestCar() {
   const btn = document.getElementById('btn-search');
   const errDiv = document.getElementById('error');
+  const warnDiv = document.getElementById('timeout-warning');
   const resultDiv = document.getElementById('result-container');
 
   errDiv.style.display = 'none';
+  warnDiv.style.display = 'block';
   btn.disabled = true;
 
   resultDiv.className = 'loading';
-  resultDiv.innerHTML = '<div class="spinner"></div><div>Loading car list...</div>';
+  resultDiv.innerHTML = '<div class="spinner"></div><div>Finding the best car via Stylus...</div>';
 
   try {
-    const listResp = await fetch(API_BASE + '/api/cars/list');
-    if (!listResp.ok) throw new Error('Failed to load car list: ' + listResp.status);
-    const cars = await listResp.json();
-    const carIds = cars.map(c => c.carId);
-    if (carIds.length === 0) throw new Error('No cars in the contract');
-
-    resultDiv.innerHTML = '<div class="spinner"></div><div>Finding the best car via Stylus...</div>';
-
+    // Use known car ID range instead of loading /api/cars/list
+    // This avoids the 42-second blockchain fetch
     const payload = {
-      carIds: carIds,
+      carIds: ALL_CAR_IDS,
       weightPrice:    parseInt(document.getElementById('w-price').value),
       weightMileage:  parseInt(document.getElementById('w-mileage').value),
       weightPower:    parseInt(document.getElementById('w-power').value),
@@ -363,20 +313,33 @@ async function findBestCar() {
       weightFuel:     parseInt(document.getElementById('w-fuel').value),
     };
 
-    const resp = await fetch(API_BASE + '/api/cars/find-best', {
+    const resp = await fetchWithTimeout(API_BASE + '/api/cars/find-best', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!resp.ok) throw new Error('Search failed: ' + resp.status);
+    if (!resp.ok) throw new Error('Search failed: HTTP ' + resp.status);
     const best = await resp.json();
 
-    const car = cars.find(c => c.carId === best.bestCarId);
-    if (!car) throw new Error('Car ID ' + best.bestCarId + ' not found');
+    if (!best.bestCarId && best.bestCarId !== 0) {
+      throw new Error('No bestCarId in response');
+    }
+
+    // Now fetch only the winning car (single fast request)
+    resultDiv.innerHTML = '<div class="spinner"></div><div>Loading winner details...</div>';
+
+    const carResp = await fetchWithTimeout(API_BASE + '/api/cars/' + best.bestCarId);
+    if (!carResp.ok) throw new Error('Failed to load car ' + best.bestCarId + ': HTTP ' + carResp.status);
+    const car = await carResp.json();
 
     renderResult(car, best.bestCarScore);
+    warnDiv.style.display = 'none';
   } catch (e) {
-    errDiv.textContent = '❌ ' + e.message;
+    if (e.name === 'AbortError') {
+      errDiv.textContent = '❌ Request timed out after 90 seconds. The blockchain node may be slow. Try again.';
+    } else {
+      errDiv.textContent = '❌ ' + e.message;
+    }
     errDiv.style.display = 'block';
     resultDiv.className = 'result-empty';
     resultDiv.innerHTML = 'An error occurred. See message on the left.';
