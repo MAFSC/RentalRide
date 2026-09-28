@@ -55,7 +55,7 @@ flowchart TD
 ## Architecture
 
 **1) Frontend**
-- Streamlit chat UI — `http://localhost:8501`
+- Streamlit chat UI — `[http://localhost:8501](http://194.5.152.242:8501)`
 - CLI agent — `python agent.py "..."`
 
 **2) Agent layer**
