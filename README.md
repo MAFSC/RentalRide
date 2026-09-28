@@ -35,32 +35,18 @@ Unlike traditional aggregators (Trivago, Booking), where a central server decide
 ---
 
 ## How it works
-User writes: "Find the second most powerful car"
-                     │
-                     ▼
-┌─────────────────────────────────────────┐
-│ DeepSeek LLM (off-chain)                │
-│ Parses text → 7 weights + rank          │
-│ { weight_power: 1000, ..., rank: 2 }    │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-┌─────────────────────────────────────────┐
-│ CarBridge.sol (Solidity)                │
-│ Builds flat array, delegates ranking    │
-└─────────────────────────────────────────┘
-                    │ staticcall
-                    ▼
-┌─────────────────────────────────────────┐
-│ car_ranker (Stylus / Rust / WASM)       │
-│ Computes weighted score on-chain        │
-│ Returns (bestIndex, score)              │
-└─────────────────────────────────────────┘
-                    │
-                    ▼
-Agent prints: Model, Price, Specs + Why it won
-text
 
+The user writes a request in natural language. DeepSeek parses it into numeric weights. Stylus ranks cars on-chain.
+
+```mermaid
+flowchart TD
+    A["User writes:<br/>'Find the second most powerful car'"] --> B["DeepSeek LLM<br/>(off-chain)<br/>Parses text → 7 weights + rank"]
+    B --> C["CarBridge.sol<br/>(Solidity)<br/>Builds flat array,<br/>delegates ranking"]
+    C -->|staticcall| D["car_ranker<br/>(Stylus / Rust / WASM)<br/>Computes weighted score on-chain<br/>Returns (bestIndex, score)"]
+    D --> E["Agent prints:<br/>Model, Price, Specs<br/>+ Why it won"]
+```
+
+**Key insight:** The LLM cannot manipulate the result — it only converts language into numbers. The ranking is done by an on-chain Rust contract, verifiable by anyone.
 
 **Key insight:** The LLM cannot manipulate the result — it only converts language into numbers. The ranking is done by an on-chain Rust contract, verifiable by anyone.
 
