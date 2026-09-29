@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentalRide AI Agent</title>
+
+    <!-- ethers.js v6 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.10.0/ethers.umd.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f9fafb;
+            color: #111827;
+            padding: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 { color: #1e40af; margin-bottom: 8px; }
+        .caption { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+
+        .wallet-bar {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+        .wallet-address { font-family: monospace; font-size: 13px; color: #1e40af; }
+
+        .input-row { display: flex; gap: 12px; margin-bottom: 24px; }
+        #queryInput {
+            flex: 1;
+            padding: 14px 18px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+        #queryInput:focus { outline: none; border-color: #1e40af; }
+
+        button {
+            padding: 14px 24px;
+            background: #1e40af;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        button:hover:not(:disabled) { background: #1e3a8a; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .result-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .car-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+        .car-price { color: #1e40af; font-weight: 600; margin-bottom: 8px; }
+        .car-specs { color: #6b7280; font-size: 14px; }
+        .car-score { color: #9ca3af; font-size: 12px; margin-top: 4px; }
+
+        .alternatives { margin-top: 16px; }
+        .alt-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+        .alt-info { font-size: 14px; flex: 1; }
+        .btn-rent {
+            padding: 8px 18px;
+            font-size: 13px;
+            background: #10b981;
+            white-space: nowrap;
+        }
+        .btn-rent:hover { background: #059669; }
+
+        .error {
+            color: #991b1b;
+            background: #fee2e2;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 12px;
+        }
+        .loading { color: #6b7280; margin-top: 12px; }
+
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.6);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+        .modal-backdrop.active { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .modal h2 { color: #1e40af; margin-bottom: 16px; font-size: 22px; }
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 14px;
+        }
+        .modal-row:last-of-type { border-bottom: none; }
+        .modal-row .label { color: #6b7280; }
+        .modal-row .value { color: #111827; font-weight: 600; }
+        .modal-note {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin: 16px 0;
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .modal-actions button { flex: 1; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background: #d1d5db; }
+    </style>
+</head>
+<body>
+    <h1>🚗 RentalRide AI Agent</h1>
+    <p class="caption">Verifiable car rental search · Stylus + DeepSeek</p>
+
+    <div class="wallet-bar">
+        <span class="wallet-address" id="walletStatus">Wallet not connected</span>
+        <button id="connectBtn" onclick="connectWallet()">Connect MetaMask</button>
+    </div>
+
+    <div class="input-row">
+        <input
+            id="queryInput"
+            type="text"
+            placeholder='e.g. "Find the cheapest electric car with the best interior"'
+            onkeydown="if(event.key==='Enter') findBestCar()"
+        />
+        <button id="searchBtn" onclick="findBestCar()">Search</button>
+    </div>
+
+    <div id="results"></div>
+    <div id="error" class="error" style="display:none;"></div>
+    <div id="loading" class="loading" style="display:none;">Analyzing your request…</div>
+
+    <div class="modal-backdrop" id="rentModal">
+        <div class="modal">
+            <h2>💳 Confirm rental</h2>
+            <div class="modal-row">
+                <span class="label">Car</span>
+                <span class="value" id="modalBrand">—</span>
+            </div>
+            <div class="modal-row">
+                <span class="label">Price per day</span>
+                <span class="value" id="modalPrice">—</span>
+            </div>
+            <div class="modal-row">
+                <span class="label">Wallet</span>
+                <span class="value" id="modalWallet">—</span>
+            </div>
+
+            <div class="modal-note">
+                ⚠️ <strong>Demo mode.</strong> In production, this button would open
+                the RedotPay Connect payment dialog to convert crypto to fiat
+                and settle to the landlord's merchant account.
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button onclick="confirmBooking()">Confirm booking</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─── Configuration ───
+        // Two URLs — try HTTPS first, fall back to HTTP.
+        // The HTTPS URL requires Caddy with Let's Encrypt on the VPS.
+        const BACKEND_URL_HTTPS = "https://194-5-152-242.nip.io";
+        const BACKEND_URL_HTTP  = "http://194.5.152.242:5050";
+        let   BACKEND_URL       = BACKEND_URL_HTTPS;  // will be updated on first fetch
+
+        const CAR_BRIDGE_ADDRESS = "0x484cB35720a9bB6fcEA175e041A221408d01eC02";
+        const CAR_BRIDGE_ABI = [
+            "function carCount() view returns (uint256)",
+            "function cars(uint256) view returns (string brand, uint256 mileage, uint256 enginePower, string fuelType, uint256 year, uint256 interiorScore, uint256 rating, uint256 pricePerDay)",
+            "function findBestCar(uint256[] carIds, uint256 weightPrice, uint256 weightMileage, uint256 weightPower, uint256 weightRating, uint256 weightYear, uint256 weightInterior, uint256 weightFuel) view returns (uint256 bestCarId, uint256 score)"
+        ];
+
+        const FETCH_TIMEOUT_MS = 90000;
+
+        let provider = null;
+        let signer = null;
+        let userAddress = null;
+        let contract = null;
+        let pendingBooking = null;
+        let backendResolved = false;
+
+        // ─── Fetch with timeout ───
+        async function fetchWithTimeout(url, options = {}) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+            try {
+                return await fetch(url, { ...options, signal: controller.signal });
+            } finally {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        // ─── Detect working backend URL ───
+        async function resolveBackendUrl() {
+            if (backendResolved) return BACKEND_URL;
+
+            // Try HTTPS first
+            try {
+                const r = await fetchWithTimeout(BACKEND_URL_HTTPS + "/api/health", { method: "GET" });
+                if (r.ok) {
+                    BACKEND_URL = BACKEND_URL_HTTPS;
+                    backendResolved = true;
+                    console.log("Backend resolved: HTTPS");
+                    return BACKEND_URL;
+                }
+            } catch (e) {
+                console.warn("HTTPS backend unavailable, trying HTTP...", e);
+            }
+
+            // Fall back to HTTP
+            try {
+                const r = await fetchWithTimeout(BACKEND_URL_HTTP + "/api/health", { method: "GET" });
+                if (r.ok) {
+                    BACKEND_URL = BACKEND_URL_HTTP;
+                    backendResolved = true;
+                    console.log("Backend resolved: HTTP");
+                    return BACKEND_URL;
+                }
+            } catch (e) {
+                console.error("HTTP backend unavailable too", e);
+            }
+
+            throw new Error(
+                "Backend is unreachable. Make sure Flask is running on the VPS " +
+                "(http://194.5.152.242:5050 or https://194-5-152-242.nip.io)."
+            );
+        }
+
+        // ─── Wallet connection ───
+        async function connectWallet() {
+            if (!window.ethereum) {
+                alert("MetaMask not found. Please install it from metamask.io");
+                return;
+            }
+            try {
+                provider = new ethers.BrowserProvider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = await provider.getSigner();
+                userAddress = await signer.getAddress();
+                contract = new ethers.Contract(CAR_BRIDGE_ADDRESS, CAR_BRIDGE_ABI, provider);
+
+                document.getElementById("walletStatus").textContent =
+                    "Connected: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
+                document.getElementById("connectBtn").textContent = "Connected";
+                document.getElementById("connectBtn").disabled = true;
+            } catch (err) {
+                alert("Connection failed: " + err.message);
+            }
+        }
+
+        // ─── Search ───
+        async function findBestCar() {
+            const query = document.getElementById("queryInput").value.trim();
+            if (!query) return;
+
+            if (!contract) {
+                alert("Please connect MetaMask first.");
+                return;
+            }
+
+            const errorDiv = document.getElementById("error");
+            const loadingDiv = document.getElementById("loading");
+            const resultsDiv = document.getElementById("results");
+            errorDiv.style.display = "none";
+            loadingDiv.style.display = "block";
+            resultsDiv.innerHTML = "";
+
+            try {
+                // Step 0: detect working backend URL
+                const backendUrl = await resolveBackendUrl();
+
+                // Step 1: LLM parses the query
+                const parseResp = await fetchWithTimeout(backendUrl + "/api/parse", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query })
+                });
+                if (!parseResp.ok) {
+                    const errText = await parseResp.text();
+                    throw new Error(`Backend error ${parseResp.status}: ${errText}`);
+                }
+                const { weights, rank } = await parseResp.json();
+
+                // Step 2: On-chain ranking
+                const total = await contract.carCount();
+                const allIds = Array.from({ length: Number(total) }, (_, i) => i);
+
+                // Winner at requested rank
+                let remaining = [...allIds];
+                let winner = null;
+                for (let i = 0; i < rank; i++) {
+                    if (remaining.length === 0) throw new Error("Rank exceeds available cars");
+                    const [bestId, score] = await contract.findBestCar(
+                        remaining,
+                        weights.weight_price, weights.weight_mileage, weights.weight_power,
+                        weights.weight_rating, weights.weight_year, weights.weight_interior,
+                        weights.weight_fuel
+                    );
+                    const c = await contract.cars(bestId);
+                    winner = {
+                        id: Number(bestId), brand: c[0],
+                        mileage: Number(c[1]), enginePower: Number(c[2]),
+                        fuelType: c[3], year: Number(c[4]),
+                        interiorScore: Number(c[5]), rating: Number(c[6]),
+                        pricePerDay: Number(c[7]), score: score.toString()
+                    };
+                    remaining = remaining.filter(id => id !== Number(bestId));
+                }
+
+                // Top-3 alternatives
+                const topCars = [];
+                let remainingForTop = [...allIds];
+                for (let i = 0; i < Math.min(3, allIds.length); i++) {
+                    const [bestId, score] = await contract.findBestCar(
+                        remainingForTop,
+                        weights.weight_price, weights.weight_mileage, weights.weight_power,
+                        weights.weight_rating, weights.weight_year, weights.weight_interior,
+                        weights.weight_fuel
+                    );
+                    const c = await contract.cars(bestId);
+                    topCars.push({
+                        id: Number(bestId), brand: c[0],
+                        enginePower: Number(c[2]), fuelType: c[3],
+                        year: Number(c[4]), pricePerDay: Number(c[7]),
+                        rating: Number(c[6]), score: score.toString()
+                    });
+                    remainingForTop = remainingForTop.filter(id => id !== Number(bestId));
+                }
+
+                renderResults(winner, topCars);
+            } catch (err) {
+                errorDiv.textContent = "❌ " + err.message;
+                errorDiv.style.display = "block";
+            } finally {
+                loadingDiv.style.display = "none";
+            }
+        }
+
+        // ─── Render ───
+        function renderResults(winner, topCars) {
+            const resultsDiv = document.getElementById("results");
+            const ratingStars = (winner.rating / 100).toFixed(1);
+
+            let html = `
+                <div class="result-card">
+                    <div class="car-name">🏆 ${winner.brand}</div>
+                    <div class="car-price">💰 ${winner.pricePerDay} USDC/day</div>
+                    <div class="car-specs">
+                        ⚡ ${winner.enginePower} hp · 🔋 ${winner.fuelType} · 📅 ${winner.year}<br>
+                        🛣️ ${winner.mileage.toLocaleString()} km · ✨ interior ${winner.interiorScore}/100 · ⭐ ${ratingStars}/5.0
+                    </div>
+                    <div class="car-score">Score: ${winner.score} (computed on-chain by Stylus)</div>
+                </div>
+            `;
+
+            if (topCars.length > 0) {
+                html += `<div class="alternatives"><strong>Top alternatives — click Rent to book:</strong>`;
+                for (const car of topCars) {
+                    html += `
+                        <div class="alt-row">
+                            <span class="alt-info">
+                                <strong>${car.brand}</strong> — ${car.pricePerDay} USDC/day ·
+                                ⚡ ${car.enginePower} hp · ⭐ ${(car.rating/100).toFixed(1)}/5.0
+                            </span>
+                            <button class="btn-rent" onclick="rentCar(${car.id}, '${car.brand.replace(/'/g, "\\'")}', ${car.pricePerDay})">
+                                Rent
+                            </button>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // ─── Rent (demo modal) ───
+        function rentCar(carId, brand, pricePerDay) {
+            if (!userAddress) {
+                alert("Please connect MetaMask first.");
+                return;
+            }
+
+            pendingBooking = { carId, brand, pricePerDay };
+
+            document.getElementById("modalBrand").textContent = brand;
+            document.getElementById("modalPrice").textContent = pricePerDay + " USDC/day";
+            document.getElementById("modalWallet").textContent =
+                userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
+
+            document.getElementById("rentModal").classList.add("active");
+        }
+
+        function closeModal() {
+            document.getElementById("rentModal").classList.remove("active");
+            pendingBooking = null;
+        }
+
+        function confirmBooking() {
+            if (!pendingBooking) return;
+
+            alert(
+                "✅ Booking confirmed (demo)\n\n" +
+                "Car: " + pendingBooking.brand + "\n" +
+                "Price: " + pendingBooking.pricePerDay + " USDC/day\n" +
+                "Wallet: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4) + "\n\n" +
+                "In production, RedotPay Connect would now convert your crypto " +
+                "to fiat and settle to the landlord's merchant account."
+            );
+
+            closeModal();
+        }
+
+        document.getElementById("rentModal").addEventListener("click", (e) => {
+            if (e.target.id === "rentModal") closeModal();
+        });
+    </script>
+</body>
+</html>
