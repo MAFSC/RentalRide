@@ -1,3 +1,6 @@
+cd /1/RentalRide/ai-agent
+
+cat > index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -204,9 +207,11 @@
 
     <script>
         // ─── Configuration ───
-        // Backend runs on the VPS, GitHub Pages only serves static files.
-        // Change this URL if your VPS address changes.
-        const BACKEND_URL = "http://194.5.152.242:5050";
+        // Two URLs — try HTTPS first, fall back to HTTP.
+        // The HTTPS URL requires Caddy with Let's Encrypt on the VPS.
+        const BACKEND_URL_HTTPS = "https://194-5-152-242.nip.io";
+        const BACKEND_URL_HTTP  = "http://194.5.152.242:5050";
+        let   BACKEND_URL       = BACKEND_URL_HTTPS;  // will be updated on first fetch
 
         const CAR_BRIDGE_ADDRESS = "0x484cB35720a9bB6fcEA175e041A221408d01eC02";
         const CAR_BRIDGE_ABI = [
@@ -222,7 +227,9 @@
         let userAddress = null;
         let contract = null;
         let pendingBooking = null;
+        let backendResolved = false;
 
+        // ─── Fetch with timeout ───
         async function fetchWithTimeout(url, options = {}) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -233,6 +240,43 @@
             }
         }
 
+        // ─── Detect working backend URL ───
+        async function resolveBackendUrl() {
+            if (backendResolved) return BACKEND_URL;
+
+            // Try HTTPS first
+            try {
+                const r = await fetchWithTimeout(BACKEND_URL_HTTPS + "/api/health", { method: "GET" });
+                if (r.ok) {
+                    BACKEND_URL = BACKEND_URL_HTTPS;
+                    backendResolved = true;
+                    console.log("Backend resolved: HTTPS");
+                    return BACKEND_URL;
+                }
+            } catch (e) {
+                console.warn("HTTPS backend unavailable, trying HTTP...", e);
+            }
+
+            // Fall back to HTTP
+            try {
+                const r = await fetchWithTimeout(BACKEND_URL_HTTP + "/api/health", { method: "GET" });
+                if (r.ok) {
+                    BACKEND_URL = BACKEND_URL_HTTP;
+                    backendResolved = true;
+                    console.log("Backend resolved: HTTP");
+                    return BACKEND_URL;
+                }
+            } catch (e) {
+                console.error("HTTP backend unavailable too", e);
+            }
+
+            throw new Error(
+                "Backend is unreachable. Make sure Flask is running on the VPS " +
+                "(http://194.5.152.242:5050 or https://194-5-152-242.nip.io)."
+            );
+        }
+
+        // ─── Wallet connection ───
         async function connectWallet() {
             if (!window.ethereum) {
                 alert("MetaMask not found. Please install it from metamask.io");
@@ -254,6 +298,7 @@
             }
         }
 
+        // ─── Search ───
         async function findBestCar() {
             const query = document.getElementById("queryInput").value.trim();
             if (!query) return;
@@ -271,7 +316,11 @@
             resultsDiv.innerHTML = "";
 
             try {
-                const parseResp = await fetchWithTimeout(BACKEND_URL + "/api/parse", {
+                // Step 0: detect working backend URL
+                const backendUrl = await resolveBackendUrl();
+
+                // Step 1: LLM parses the query
+                const parseResp = await fetchWithTimeout(backendUrl + "/api/parse", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query })
@@ -282,9 +331,11 @@
                 }
                 const { weights, rank } = await parseResp.json();
 
+                // Step 2: On-chain ranking
                 const total = await contract.carCount();
                 const allIds = Array.from({ length: Number(total) }, (_, i) => i);
 
+                // Winner at requested rank
                 let remaining = [...allIds];
                 let winner = null;
                 for (let i = 0; i < rank; i++) {
@@ -306,6 +357,7 @@
                     remaining = remaining.filter(id => id !== Number(bestId));
                 }
 
+                // Top-3 alternatives
                 const topCars = [];
                 let remainingForTop = [...allIds];
                 for (let i = 0; i < Math.min(3, allIds.length); i++) {
@@ -334,6 +386,7 @@
             }
         }
 
+        // ─── Render ───
         function renderResults(winner, topCars) {
             const resultsDiv = document.getElementById("results");
             const ratingStars = (winner.rating / 100).toFixed(1);
@@ -371,6 +424,7 @@
             resultsDiv.innerHTML = html;
         }
 
+        // ─── Rent (demo modal) ───
         function rentCar(carId, brand, pricePerDay) {
             if (!userAddress) {
                 alert("Please connect MetaMask first.");
@@ -413,3 +467,6 @@
     </script>
 </body>
 </html>
+HTMLEOF
+
+echo "✅ index.html перезаписан с fallback HTTPS → HTTP"
