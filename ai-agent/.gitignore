@@ -1,0 +1,25 @@
+# Environment & secrets
+.env
+.env.local
+
+# Python virtual environment
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js
+node_modules/
+package/
+*.tgz
+
+# Vim swap files
+*.swp
+*.swo
+
+# Local SDK copies
+redotkit-dist/
+redotkit.umd.js
+
+# Logs
+*.log
