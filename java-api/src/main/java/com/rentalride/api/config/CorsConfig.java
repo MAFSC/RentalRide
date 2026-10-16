@@ -1,10 +1,23 @@
-pkill -f "java -jar target/java-api"
-sleep 3
+package com.rentalride.api.config;
 
-cd /1/RentalRide/java-api
-mvn clean package -DskipTests
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-export BLOCKCHAIN_PRIVATE_KEY="REDACTED"
-nohup java -jar target/java-api-0.0.1-SNAPSHOT.jar > app.log 2>&1 &
-sleep 75
-tail -5 app.log
+@Configuration
+public class CorsConfig {
+
+    @Bean
+    public WebMvcConfigurer corsConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addCorsMappings(CorsRegistry registry) {
+                registry.addMapping("/api/**")
+                        .allowedOrigins("*")
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                        .allowedHeaders("*");
+            }
+        };
+    }
+}

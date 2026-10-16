@@ -3,6 +3,7 @@ cd /1/RentalRide/ai-agent
 cat > index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
+<script src="https://www.paypal.com/sdk/js?client-id=BAAjPY3ACyQoBxBD3h_wk1-pmBOBwRpeqEdkGv8noH4pcDWzPL2n90eP4yCG4LyQJ_TpMdC7Vh63i4mnhU&currency=USD"></script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -465,6 +466,38 @@ cat > index.html << 'HTMLEOF'
             if (e.target.id === "rentModal") closeModal();
         });
     </script>
+<div id="paypal-button-container" style="max-width:400px;margin:20px auto;"></div>
+<script>
+  paypal.Buttons({
+    createOrder: async () => {
+      const res = await fetch('/api/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rentalId: 'demo-001', amount: '49.99', currency: 'USD' })
+      });
+      const data = await res.json();
+      if (!data.id) throw new Error('create-order failed: ' + JSON.stringify(data));
+      return data.id;
+    },
+    onApprove: async (data) => {
+      const res = await fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: data.orderID, rentalId: 'demo-001' })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Оплачено! Capture ID: ' + result.captureId);
+      } else {
+        alert('Ошибка: ' + JSON.stringify(result));
+      }
+    },
+    onError: (err) => {
+      console.error('PayPal error:', err);
+      alert('PayPal error: ' + err);
+    }
+  }).render('#paypal-button-container');
+</script>
 </body>
 </html>
 HTMLEOF

@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8083
   address: 0.0.0.0
   tomcat:
     connection-timeout: 300000
@@ -26,3 +26,8 @@ logging:
   level:
     org.web3j: INFO
     com.rentalride.api: DEBUG
+
+paypal:
+  client:
+    id: ${PAYPAL_CLIENT_ID}
+    secret: ${PAYPAL_SECRET}
