@@ -1,255 +1,256 @@
-#!/usr/bin/env python3
-"""
-RentalRide AI Agent — Flask Backend
-====================================
-
-Handles:
-  1. Natural-language parsing via DeepSeek LLM → 7 weights + rank
-  2. RedotPay Connect preOrder creation (demo placeholder)
-
-The frontend is hosted on GitHub Pages:
-  https://mafsc.github.io/RentalRide/
-
-This backend runs on the VPS and is called via CORS:
-  http://194.5.152.242:5050/api/*
-
-Usage:
-    python backend.py
-    # → Flask listening on 0.0.0.0:5050
-"""
-
+import os
 import json
 import logging
-import os
-import time
-
-from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
+from dotenv import load_dotenv
+from web3 import Web3
 
-# ─────────────────────────────────────────────────────────────
-#  Logging
-# ─────────────────────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-log = logging.getLogger(__name__)
-
-# ─────────────────────────────────────────────────────────────
-#  Environment
-# ─────────────────────────────────────────────────────────────
-
+# ─── Setup ───
 load_dotenv()
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-REDOTPAY_PREORDER_ID = os.getenv("REDOTPAY_PREORDER_ID", "")
-
-if not DEEPSEEK_API_KEY:
-    raise RuntimeError(
-        "DEEPSEEK_API_KEY is not set. Add it to /1/RentalRide/ai-agent/.env"
-    )
-
-# ─────────────────────────────────────────────────────────────
-#  Flask app with CORS for GitHub Pages
-# ─────────────────────────────────────────────────────────────
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+log = logging.getLogger(__name__)
 
 app = Flask(__name__)
+CORS(app, origins="*")  # Разрешаем запросы с GitHub Pages
 
-CORS(
-    app,
-    resources={
-        r"/api/*": {
-            "origins": [
-                "https://mafsc.github.io",      # GitHub Pages
-                "http://194.5.152.242:8080",    # Local frontend (fallback)
-                "http://localhost:8080",
-                "http://127.0.0.1:8080",
-            ],
-            "methods": ["GET", "POST", "OPTIONS"],
-            "allow_headers": ["Content-Type"],
-            "supports_credentials": False,
-            "max_age": 3600,
-        }
-    },
-)
+# DeepSeek (OpenAI-совместимый API)
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    log.warning("DEEPSEEK_API_KEY not set. AI parsing will fail.")
 
-
-# Allow Private Network Access (Chrome) for mixed HTTP/HTTPS scenarios
-@app.after_request
-def add_pna_header(response):
-    if request.headers.get("Access-Control-Request-Private-Network") == "true":
-        response.headers["Access-Control-Allow-Private-Network"] = "true"
-    return response
-
-
-# ─────────────────────────────────────────────────────────────
-#  DeepSeek client
-# ─────────────────────────────────────────────────────────────
-
-deepseek_client = OpenAI(
+client = OpenAI(
     api_key=DEEPSEEK_API_KEY,
-    base_url="https://api.deepseek.com",
-    timeout=55.0,
-)
+    base_url="https://api.deepseek.com/v1"
+) if DEEPSEEK_API_KEY else None
 
-DEEPSEEK_MODEL = "deepseek-flash"
+# Web3 (Robinhood Chain)
+RPC_URL = os.getenv("RPC_URL", "https://rpc.testnet.chain.robinhood.com")
+CAR_BRIDGE_ADDRESS = os.getenv("CAR_BRIDGE_ADDRESS", "0x484cB35720a9bB6fcEA175e041A221408d01eC02")
 
-# ─────────────────────────────────────────────────────────────
-#  System prompt
-# ─────────────────────────────────────────────────────────────
+# ABI для чтения машин (view-функции)
+CAR_BRIDGE_ABI = [
+    {
+        "inputs": [],
+        "name": "carCount",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "name": "cars",
+        "outputs": [
+            {"internalType": "string", "name": "brand", "type": "string"},
+            {"internalType": "uint256", "name": "mileage", "type": "uint256"},
+            {"internalType": "uint256", "name": "enginePower", "type": "uint256"},
+            {"internalType": "string", "name": "fuelType", "type": "string"},
+            {"internalType": "uint256", "name": "year", "type": "uint256"},
+            {"internalType": "uint256", "name": "interiorScore", "type": "uint256"},
+            {"internalType": "uint256", "name": "rating", "type": "uint256"},
+            {"internalType": "uint256", "name": "pricePerDay", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]
 
+w3 = Web3(Web3.HTTPProvider(RPC_URL))
+contract = w3.eth.contract(address=Web3.to_checksum_address(CAR_BRIDGE_ADDRESS), abi=CAR_BRIDGE_ABI)
+
+# ─── AI Prompt ───
 SYSTEM_PROMPT = """
-You are a request parser for a car rental smart contract.
+You are an AI assistant for a car rental service.
+The user will ask for a car in natural language (Russian or English).
+You must return a JSON object with weights for different car attributes and a rank.
 
-Return a JSON object with TWO parts:
+Available attributes:
+- price (стоимость аренды за день)
+- mileage (пробег)
+- power (мощность двигателя)
+- rating (рейтинг)
+- year (год выпуска)
+- interior (оценка салона)
+- fuel (тип топлива: electric, petrol, diesel, hybrid)
 
-1. "weights" (0..1000):
-   - weight_price:    higher weight → cheaper cars preferred
-   - weight_mileage:  higher weight → lower mileage preferred
-   - weight_power:    higher weight → more horsepower preferred
-   - weight_rating:   higher weight → higher user rating preferred
-   - weight_year:     higher weight → newer cars preferred
-   - weight_interior: higher weight → better interior condition preferred
-   - weight_fuel:     higher weight → electric / hybrid preferred
-                      (fuel priority: electric > hybrid > petrol > diesel)
+Weights must be integers from 1 to 1000.
+- If the user wants a CHEAP car ("дешевый", "cheap", "budget"), set weight_price = 1000.
+- If the user wants an EXPENSIVE/LUXURY car ("дорогой", "expensive", "luxury", "premium"), set weight_price = -1000 (negative).
+- If the user wants a NEW car ("новый", "new"), set weight_year = 1000.
+- If the user wants a POWERFUL car ("мощный", "powerful", "fast"), set weight_power = 1000.
+- If the user wants a GOOD interior ("хороший салон", "best interior"), set weight_interior = 1000.
+- If the user wants an ELECTRIC car ("электрический", "electric"), set weight_fuel = 1000.
 
-2. "rank" (1-based):
-   - 1 = best car (default)
-   - 2 = second best car
-   - 3 = third best car
+If the user says "the most expensive", set weight_price = -1000 and rank = 1.
+If the user says "the cheapest", set weight_price = 1000 and rank = 1.
 
-Rules:
-  - Explicit mention of a criterion → weight 1000
-  - Implied mention → weight 500
-  - Not mentioned → weight 10
-  - "second"/"второй"/"2nd" → rank 2
-  - "third"/"третий"/"3rd" → rank 3
-  - No rank mentioned → rank 1
-
-Output (strict JSON, no other text):
+Return ONLY a JSON object like this:
 {
   "weights": {
-    "weight_price": <int>,
-    "weight_mileage": <int>,
-    "weight_power": <int>,
-    "weight_rating": <int>,
-    "weight_year": <int>,
-    "weight_interior": <int>,
-    "weight_fuel": <int>
+    "weight_price": 1000,
+    "weight_mileage": 10,
+    "weight_power": 10,
+    "weight_rating": 10,
+    "weight_year": 10,
+    "weight_interior": 10,
+    "weight_fuel": 10
   },
-  "rank": <int>
+  "rank": 1
 }
 """
 
-# ─────────────────────────────────────────────────────────────
-#  Route: /api/parse
-# ─────────────────────────────────────────────────────────────
-
-@app.route("/api/parse", methods=["POST", "OPTIONS"])
-def parse_request():
-    if request.method == "OPTIONS":
-        return "", 204
-
-    start = time.time()
-    data = request.get_json(silent=True) or {}
-    user_request = data.get("query", "").strip()
-
-    if not user_request:
-        return jsonify({"error": "empty query"}), 400
-
-    log.info(f"Parsing query: {user_request!r}")
-
+def parse_query(query):
+    """Использует DeepSeek для парсинга запроса."""
+    if not client:
+        log.warning("No DeepSeek client, using default weights.")
+        return {
+            "weights": {
+                "weight_price": 1000,
+                "weight_mileage": 10,
+                "weight_power": 10,
+                "weight_rating": 10,
+                "weight_year": 10,
+                "weight_interior": 10,
+                "weight_fuel": 10
+            },
+            "rank": 1
+        }
+    
     try:
-        response = deepseek_client.chat.completions.create(
-            model=DEEPSEEK_MODEL,
-            temperature=0,
-            response_format={"type": "json_object"},
+        response = client.chat.completions.create(
+            model="deepseek-chat",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT.strip()},
-                {"role": "user", "content": user_request},
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": query}
             ],
+            temperature=0.1,
+            max_tokens=200
         )
-
-        raw = response.choices[0].message.content
-        parsed = json.loads(raw)
-
-        weights = parsed.get("weights", parsed)
-        rank = int(parsed.get("rank", 1))
-
-        keys = [
-            "weight_price", "weight_mileage", "weight_power",
-            "weight_rating", "weight_year", "weight_interior", "weight_fuel",
-        ]
-        for k in keys:
-            weights[k] = max(0, min(int(weights.get(k, 10)), 1000))
-
-        elapsed = time.time() - start
-        log.info(f"Parsed in {elapsed:.2f}s → rank={rank}, weights={weights}")
-
-        return jsonify({"weights": weights, "rank": max(1, rank)})
-
+        content = response.choices[0].message.content.strip()
+        # Извлекаем JSON (может быть обернут в ```json ... ```)
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+        
+        data = json.loads(content)
+        log.info(f"Parsed weights: {data}")
+        return data
     except Exception as e:
-        elapsed = time.time() - start
-        log.exception(f"DeepSeek parse failed after {elapsed:.2f}s")
-        return jsonify({"error": f"LLM error: {str(e)}"}), 500
+        log.error(f"DeepSeek parsing failed: {e}")
+        # Fallback
+        return {
+            "weights": {
+                "weight_price": 1000,
+                "weight_mileage": 10,
+                "weight_power": 10,
+                "weight_rating": 10,
+                "weight_year": 10,
+                "weight_interior": 10,
+                "weight_fuel": 10
+            },
+            "rank": 1
+        }
 
+def get_all_cars():
+    """Получает все машины из контракта."""
+    try:
+        count = contract.functions.carCount().call()
+        cars = []
+        for i in range(count):
+            car_data = contract.functions.cars(i).call()
+            cars.append({
+                "id": i,
+                "brand": car_data[0],
+                "mileage": car_data[1],
+                "enginePower": car_data[2],
+                "fuelType": car_data[3],
+                "year": car_data[4],
+                "interiorScore": car_data[5],
+                "rating": car_data[6],
+                "pricePerDay": car_data[7]
+            })
+        return cars
+    except Exception as e:
+        log.error(f"Error fetching cars: {e}")
+        return []
 
-# ─────────────────────────────────────────────────────────────
-#  Route: /api/rent
-# ─────────────────────────────────────────────────────────────
+def score_car(car, weights):
+    """Вычисляет скор машины с учётом весов."""
+    # Нормализация: приводим все значения к 0..100
+    # Если weight_price отрицательный, инвертируем цену (чем дороже, тем лучше)
+    price_weight = weights.get("weight_price", 10)
+    if price_weight < 0:
+        # Инвертируем: чем дороже, тем больше скор
+        price_score = car["pricePerDay"] * abs(price_weight)
+    else:
+        # Чем дешевле, тем больше скор (максимум при 0)
+        price_score = (1000 - car["pricePerDay"]) * price_weight
 
-@app.route("/api/rent", methods=["POST", "OPTIONS"])
-def rent_car():
-    if request.method == "OPTIONS":
-        return "", 204
+    mileage_score = (100000 - car["mileage"]) / 1000 * weights.get("weight_mileage", 10)
+    power_score = car["enginePower"] * weights.get("weight_power", 10) / 10
+    rating_score = car["rating"] * weights.get("weight_rating", 10) / 10
+    year_score = (car["year"] - 2000) * weights.get("weight_year", 10) / 10
+    interior_score = car["interiorScore"] * weights.get("weight_interior", 10) / 10
+    fuel_score = weights.get("weight_fuel", 10) if car["fuelType"].lower() in ["electric", "hybrid"] else 0
 
-    data = request.get_json(silent=True) or {}
-    car_id = data.get("carId")
-    brand = data.get("brand", "Unknown")
-    price = data.get("pricePerDay", 0)
+    total = price_score + mileage_score + power_score + rating_score + year_score + interior_score + fuel_score
+    return total
 
-    if not car_id:
-        return jsonify({"error": "missing carId"}), 400
-
-    if not REDOTPAY_PREORDER_ID:
-        return jsonify({
-            "error": (
-                "RedotPay Connect is not configured. "
-                "The landlord must register as a merchant on RedotPay, "
-                "create a preOrder, and set REDOTPAY_PREORDER_ID in .env"
-            )
-        }), 503
-
-    log.info(f"Rent request: carId={car_id}, brand={brand}, price={price}")
-
-    return jsonify({
-        "preOrderId": REDOTPAY_PREORDER_ID,
-        "carId": car_id,
-        "brand": brand,
-        "price": price,
-    })
-
-
-# ─────────────────────────────────────────────────────────────
-#  Route: /api/health
-# ─────────────────────────────────────────────────────────────
-
-@app.route("/api/health", methods=["GET"])
+@app.route('/api/health', methods=['GET'])
 def health():
     return jsonify({
         "status": "ok",
         "deepseek_configured": bool(DEEPSEEK_API_KEY),
-        "redotpay_configured": bool(REDOTPAY_PREORDER_ID),
+        "redotpay_configured": False,
+        "rpc": RPC_URL,
+        "car_bridge": CAR_BRIDGE_ADDRESS
     })
 
+@app.route('/api/parse', methods=['POST'])
+def parse_endpoint():
+    data = request.get_json()
+    query = data.get("query", "").strip()
+    if not query:
+        return jsonify({"error": "query is required"}), 400
 
-# ─────────────────────────────────────────────────────────────
-#  Entry point
-# ─────────────────────────────────────────────────────────────
+    # 1. Парсим запрос через DeepSeek
+    parsed = parse_query(query)
+    weights = parsed.get("weights", {})
+    rank = parsed.get("rank", 1)
 
-if __name__ == "__main__":
-    log.info("Starting Flask on 0.0.0.0:5050")
+    # 2. Получаем машины
+    cars = get_all_cars()
+    if not cars:
+        return jsonify({"error": "No cars found in contract"}), 500
+
+    # 3. Сортируем машины на Python (чтобы поддерживать отрицательные веса)
+    scored_cars = [(score_car(car, weights), car) for car in cars]
+    scored_cars.sort(key=lambda x: x[0], reverse=True)
+
+    # 4. Выбираем машину по рангу
+    if rank < 1:
+        rank = 1
+    if rank > len(scored_cars):
+        rank = len(scored_cars)
+    
+    best_car = scored_cars[rank - 1][1]
+
+    # 5. Формируем ответ для фронтенда
+    # Фронтенд ожидает weights и rank, а также bestCarId (хотя он сам его вычисляет)
+    # Но теперь мы возвращаем bestCarId явно, чтобы фронт мог его использовать
+    return jsonify({
+        "weights": weights,
+        "rank": rank,
+        "bestCarId": best_car["id"],
+        "bestCarScore": scored_cars[rank - 1][0]
+    })
+
+if __name__ == '__main__':
+    log.info(f"Starting Flask on 0.0.0.0:5050")
+    log.info(f"RPC: {RPC_URL}")
+    log.info(f"CarBridge: {CAR_BRIDGE_ADDRESS}")
     app.run(host="0.0.0.0", port=5050, debug=False, threaded=True)
+
