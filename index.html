@@ -1,9 +1,5 @@
-cd /1/RentalRide/ai-agent
-
-cat > index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
-<script src="https://www.paypal.com/sdk/js?client-id=BAAjPY3ACyQoBxBD3h_wk1-pmBOBwRpeqEdkGv8noH4pcDWzPL2n90eP4yCG4LyQJ_TpMdC7Vh63i4mnhU&currency=USD"></script>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +7,9 @@ cat > index.html << 'HTMLEOF'
 
     <!-- ethers.js v6 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.10.0/ethers.umd.min.js"></script>
+
+    <!-- PayPal SDK (Sandbox) -->
+    <script src="https://www.paypal.com/sdk/js?client-id=BAAjPY3ACyQoBxBD3h_wk1-pmBOBwRpeqEdkGv8noH4pcDWzPL2n90eP4yCG4LyQJ_TpMdC7Vh63i4mnhU&currency=USD"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,7 +22,8 @@ cat > index.html << 'HTMLEOF'
             margin: 0 auto;
         }
         h1 { color: #1e40af; margin-bottom: 8px; }
-        .caption { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+        .caption { color: #6b7280; font-size: 14px; margin-bottom: 4px; }
+        .sub-caption { color: #10b981; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
 
         .wallet-bar {
             background: #eff6ff;
@@ -119,9 +119,11 @@ cat > index.html << 'HTMLEOF'
             background: #fff;
             border-radius: 16px;
             padding: 28px;
-            max-width: 480px;
+            max-width: 520px;
             width: 100%;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .modal h2 { color: #1e40af; margin-bottom: 16px; font-size: 22px; }
         .modal-row {
@@ -134,6 +136,36 @@ cat > index.html << 'HTMLEOF'
         .modal-row:last-of-type { border-bottom: none; }
         .modal-row .label { color: #6b7280; }
         .modal-row .value { color: #111827; font-weight: 600; }
+
+        /* Payment method tabs */
+        .pay-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .pay-tab {
+            padding: 10px 16px;
+            background: transparent;
+            color: #6b7280;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: -1px;
+        }
+        .pay-tab:hover:not(.active) { color: #1e40af; background: transparent; }
+        .pay-tab.active {
+            color: #1e40af;
+            border-bottom-color: #1e40af;
+            background: transparent;
+        }
+
+        .pay-panel { display: none; padding: 12px 0; }
+        .pay-panel.active { display: block; }
+
         .modal-note {
             background: #fef3c7;
             border: 1px solid #fde68a;
@@ -141,7 +173,7 @@ cat > index.html << 'HTMLEOF'
             padding: 12px 16px;
             border-radius: 8px;
             font-size: 13px;
-            margin: 16px 0;
+            margin: 12px 0;
             line-height: 1.5;
         }
         .modal-actions {
@@ -152,11 +184,15 @@ cat > index.html << 'HTMLEOF'
         .modal-actions button { flex: 1; }
         .btn-secondary { background: #e5e7eb; color: #374151; }
         .btn-secondary:hover { background: #d1d5db; }
+
+        #paypal-button-container { min-height: 50px; margin-top: 12px; }
+        #paypal-status { margin-top: 8px; font-size: 13px; color: #6b7280; }
     </style>
 </head>
 <body>
     <h1>🚗 RentalRide AI Agent</h1>
     <p class="caption">Verifiable car rental search · Stylus + DeepSeek</p>
+    <p class="sub-caption">Payment options: Crypto (MetaMask) or PayPal</p>
 
     <div class="wallet-bar">
         <span class="wallet-address" id="walletStatus">Wallet not connected</span>
@@ -177,6 +213,7 @@ cat > index.html << 'HTMLEOF'
     <div id="error" class="error" style="display:none;"></div>
     <div id="loading" class="loading" style="display:none;">Analyzing your request…</div>
 
+    <!-- Rent modal with payment method tabs -->
     <div class="modal-backdrop" id="rentModal">
         <div class="modal">
             <h2>💳 Confirm rental</h2>
@@ -193,26 +230,46 @@ cat > index.html << 'HTMLEOF'
                 <span class="value" id="modalWallet">—</span>
             </div>
 
-            <div class="modal-note">
-                ⚠️ <strong>Demo mode.</strong> In production, this button would open
-                the RedotPay Connect payment dialog to convert crypto to fiat
-                and settle to the landlord's merchant account.
+            <div class="pay-tabs">
+                <button class="pay-tab active" data-tab="crypto" onclick="switchPayTab('crypto')">💳 Crypto (MetaMask)</button>
+                <button class="pay-tab" data-tab="paypal" onclick="switchPayTab('paypal')">🅿️ PayPal</button>
             </div>
 
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-                <button onclick="confirmBooking()">Confirm booking</button>
+            <!-- Crypto panel -->
+            <div class="pay-panel active" id="panel-crypto">
+                <div class="modal-note">
+                    ⚠️ <strong>Demo mode.</strong> In production, this button would open
+                    the payment dialog to convert crypto to fiat and settle to the landlord's merchant account.
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button onclick="confirmBooking()">Confirm booking (Crypto)</button>
+                </div>
+            </div>
+
+            <!-- PayPal panel -->
+            <div class="pay-panel" id="panel-paypal">
+                <p style="font-size:14px;color:#6b7280;margin-bottom:12px;">
+                    Pay with PayPal Sandbox (test card: 4012888888881881, 12/2030, CVV 123).
+                </p>
+                <div id="paypal-button-container"></div>
+                <div id="paypal-status"></div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
         // ─── Configuration ───
-        // Two URLs — try HTTPS first, fall back to HTTP.
-        // The HTTPS URL requires Caddy with Let's Encrypt on the VPS.
+        const PAYPAL_API_BASE = (window.location.hostname === 'mafsc.github.io')
+            ? 'https://b646-194-5-152-242.ngrok-free.app'
+            : '';
+
         const BACKEND_URL_HTTPS = "https://194-5-152-242.nip.io";
         const BACKEND_URL_HTTP  = "http://194.5.152.242:5050";
-        let   BACKEND_URL       = BACKEND_URL_HTTPS;  // will be updated on first fetch
+        let   BACKEND_URL       = BACKEND_URL_HTTPS;
 
         const CAR_BRIDGE_ADDRESS = "0x484cB35720a9bB6fcEA175e041A221408d01eC02";
         const CAR_BRIDGE_ABI = [
@@ -229,6 +286,7 @@ cat > index.html << 'HTMLEOF'
         let contract = null;
         let pendingBooking = null;
         let backendResolved = false;
+        let paypalButtonsRendered = false;
 
         // ─── Fetch with timeout ───
         async function fetchWithTimeout(url, options = {}) {
@@ -241,73 +299,40 @@ cat > index.html << 'HTMLEOF'
             }
         }
 
-        // ─── Detect working backend URL ───
         async function resolveBackendUrl() {
             if (backendResolved) return BACKEND_URL;
-
-            // Try HTTPS first
             try {
                 const r = await fetchWithTimeout(BACKEND_URL_HTTPS + "/api/health", { method: "GET" });
-                if (r.ok) {
-                    BACKEND_URL = BACKEND_URL_HTTPS;
-                    backendResolved = true;
-                    console.log("Backend resolved: HTTPS");
-                    return BACKEND_URL;
-                }
-            } catch (e) {
-                console.warn("HTTPS backend unavailable, trying HTTP...", e);
-            }
-
-            // Fall back to HTTP
+                if (r.ok) { BACKEND_URL = BACKEND_URL_HTTPS; backendResolved = true; return BACKEND_URL; }
+            } catch (e) { console.warn("HTTPS backend unavailable, trying HTTP...", e); }
             try {
                 const r = await fetchWithTimeout(BACKEND_URL_HTTP + "/api/health", { method: "GET" });
-                if (r.ok) {
-                    BACKEND_URL = BACKEND_URL_HTTP;
-                    backendResolved = true;
-                    console.log("Backend resolved: HTTP");
-                    return BACKEND_URL;
-                }
-            } catch (e) {
-                console.error("HTTP backend unavailable too", e);
-            }
-
-            throw new Error(
-                "Backend is unreachable. Make sure Flask is running on the VPS " +
-                "(http://194.5.152.242:5050 or https://194-5-152-242.nip.io)."
-            );
+                if (r.ok) { BACKEND_URL = BACKEND_URL_HTTP; backendResolved = true; return BACKEND_URL; }
+            } catch (e) { console.error("HTTP backend unavailable too", e); }
+            throw new Error("Backend is unreachable.");
         }
 
-        // ─── Wallet connection ───
+        // ─── Wallet ───
         async function connectWallet() {
-            if (!window.ethereum) {
-                alert("MetaMask not found. Please install it from metamask.io");
-                return;
-            }
+            if (!window.ethereum) { alert("MetaMask not found."); return; }
             try {
                 provider = new ethers.BrowserProvider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
                 userAddress = await signer.getAddress();
                 contract = new ethers.Contract(CAR_BRIDGE_ADDRESS, CAR_BRIDGE_ABI, provider);
-
                 document.getElementById("walletStatus").textContent =
                     "Connected: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
                 document.getElementById("connectBtn").textContent = "Connected";
                 document.getElementById("connectBtn").disabled = true;
-            } catch (err) {
-                alert("Connection failed: " + err.message);
-            }
+            } catch (err) { alert("Connection failed: " + err.message); }
         }
 
         // ─── Search ───
         async function findBestCar() {
             const query = document.getElementById("queryInput").value.trim();
             if (!query) return;
-
-            if (!contract) {
-                alert("Please connect MetaMask first.");
-                return;
-            }
+            if (!contract) { alert("Please connect MetaMask first."); return; }
 
             const errorDiv = document.getElementById("error");
             const loadingDiv = document.getElementById("loading");
@@ -317,26 +342,18 @@ cat > index.html << 'HTMLEOF'
             resultsDiv.innerHTML = "";
 
             try {
-                // Step 0: detect working backend URL
                 const backendUrl = await resolveBackendUrl();
-
-                // Step 1: LLM parses the query
                 const parseResp = await fetchWithTimeout(backendUrl + "/api/parse", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query })
                 });
-                if (!parseResp.ok) {
-                    const errText = await parseResp.text();
-                    throw new Error(`Backend error ${parseResp.status}: ${errText}`);
-                }
+                if (!parseResp.ok) throw new Error(`Backend error ${parseResp.status}`);
                 const { weights, rank } = await parseResp.json();
 
-                // Step 2: On-chain ranking
                 const total = await contract.carCount();
                 const allIds = Array.from({ length: Number(total) }, (_, i) => i);
 
-                // Winner at requested rank
                 let remaining = [...allIds];
                 let winner = null;
                 for (let i = 0; i < rank; i++) {
@@ -349,16 +366,14 @@ cat > index.html << 'HTMLEOF'
                     );
                     const c = await contract.cars(bestId);
                     winner = {
-                        id: Number(bestId), brand: c[0],
-                        mileage: Number(c[1]), enginePower: Number(c[2]),
-                        fuelType: c[3], year: Number(c[4]),
+                        id: Number(bestId), brand: c[0], mileage: Number(c[1]),
+                        enginePower: Number(c[2]), fuelType: c[3], year: Number(c[4]),
                         interiorScore: Number(c[5]), rating: Number(c[6]),
                         pricePerDay: Number(c[7]), score: score.toString()
                     };
                     remaining = remaining.filter(id => id !== Number(bestId));
                 }
 
-                // Top-3 alternatives
                 const topCars = [];
                 let remainingForTop = [...allIds];
                 for (let i = 0; i < Math.min(3, allIds.length); i++) {
@@ -370,9 +385,8 @@ cat > index.html << 'HTMLEOF'
                     );
                     const c = await contract.cars(bestId);
                     topCars.push({
-                        id: Number(bestId), brand: c[0],
-                        enginePower: Number(c[2]), fuelType: c[3],
-                        year: Number(c[4]), pricePerDay: Number(c[7]),
+                        id: Number(bestId), brand: c[0], enginePower: Number(c[2]),
+                        fuelType: c[3], year: Number(c[4]), pricePerDay: Number(c[7]),
                         rating: Number(c[6]), score: score.toString()
                     });
                     remainingForTop = remainingForTop.filter(id => id !== Number(bestId));
@@ -387,11 +401,9 @@ cat > index.html << 'HTMLEOF'
             }
         }
 
-        // ─── Render ───
         function renderResults(winner, topCars) {
             const resultsDiv = document.getElementById("results");
             const ratingStars = (winner.rating / 100).toFixed(1);
-
             let html = `
                 <div class="result-card">
                     <div class="car-name">🏆 ${winner.brand}</div>
@@ -403,7 +415,6 @@ cat > index.html << 'HTMLEOF'
                     <div class="car-score">Score: ${winner.score} (computed on-chain by Stylus)</div>
                 </div>
             `;
-
             if (topCars.length > 0) {
                 html += `<div class="alternatives"><strong>Top alternatives — click Rent to book:</strong>`;
                 for (const car of topCars) {
@@ -413,33 +424,25 @@ cat > index.html << 'HTMLEOF'
                                 <strong>${car.brand}</strong> — ${car.pricePerDay} USDC/day ·
                                 ⚡ ${car.enginePower} hp · ⭐ ${(car.rating/100).toFixed(1)}/5.0
                             </span>
-                            <button class="btn-rent" onclick="rentCar(${car.id}, '${car.brand.replace(/'/g, "\\'")}', ${car.pricePerDay})">
-                                Rent
-                            </button>
+                            <button class="btn-rent" onclick="rentCar(${car.id}, '${car.brand.replace(/'/g, "\\'")}', ${car.pricePerDay})">Rent</button>
                         </div>
                     `;
                 }
                 html += `</div>`;
             }
-
             resultsDiv.innerHTML = html;
         }
 
-        // ─── Rent (demo modal) ───
+        // ─── Rent modal ───
         function rentCar(carId, brand, pricePerDay) {
-            if (!userAddress) {
-                alert("Please connect MetaMask first.");
-                return;
-            }
-
+            if (!userAddress) { alert("Please connect MetaMask first."); return; }
             pendingBooking = { carId, brand, pricePerDay };
-
             document.getElementById("modalBrand").textContent = brand;
             document.getElementById("modalPrice").textContent = pricePerDay + " USDC/day";
             document.getElementById("modalWallet").textContent =
                 userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
-
             document.getElementById("rentModal").classList.add("active");
+            switchPayTab('crypto');
         }
 
         function closeModal() {
@@ -447,18 +450,81 @@ cat > index.html << 'HTMLEOF'
             pendingBooking = null;
         }
 
+        // ─── Payment tabs ───
+        function switchPayTab(tab) {
+            document.querySelectorAll(".pay-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+            document.querySelectorAll(".pay-panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + tab));
+
+            if (tab === "paypal") {
+                renderPayPalButtons();
+            }
+        }
+
+        // ─── PayPal ───
+        function setPayPalStatus(msg, color) {
+            const el = document.getElementById("paypal-status");
+            if (el) { el.textContent = msg; el.style.color = color || "#6b7280"; }
+        }
+
+        function renderPayPalButtons() {
+            if (paypalButtonsRendered || typeof paypal === "undefined") return;
+            paypalButtonsRendered = true;
+
+            paypal.Buttons({
+                createOrder: async () => {
+                    setPayPalStatus("Creating order...");
+                    if (!pendingBooking) throw new Error("No booking selected");
+                    const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/create-order`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            rentalId: "car-" + pendingBooking.carId,
+                            amount: pendingBooking.pricePerDay.toFixed(2),
+                            currency: "USD"
+                        })
+                    });
+                    const data = await res.json();
+                    if (!data.id) throw new Error("create-order failed: " + JSON.stringify(data));
+                    setPayPalStatus("Order created: " + data.id, "#059669");
+                    return data.id;
+                },
+                onApprove: async (data) => {
+                    setPayPalStatus("Capturing payment...");
+                    const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/capture-order`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            orderId: data.orderID,
+                            rentalId: pendingBooking ? "car-" + pendingBooking.carId : "unknown"
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        setPayPalStatus("Paid! Capture ID: " + result.captureId, "#059669");
+                        alert("Оплачено через PayPal!\nCapture ID: " + result.captureId);
+                        closeModal();
+                    } else {
+                        setPayPalStatus("Capture failed: " + JSON.stringify(result), "#991b1b");
+                    }
+                },
+                onError: (err) => {
+                    console.error("PayPal error:", err);
+                    setPayPalStatus("PayPal error: " + err, "#991b1b");
+                }
+            }).render("#paypal-button-container");
+        }
+
+        // ─── Crypto confirm (demo) ───
         function confirmBooking() {
             if (!pendingBooking) return;
-
             alert(
-                "✅ Booking confirmed (demo)\n\n" +
+                "✅ Booking confirmed (Crypto / demo)\n\n" +
                 "Car: " + pendingBooking.brand + "\n" +
                 "Price: " + pendingBooking.pricePerDay + " USDC/day\n" +
                 "Wallet: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4) + "\n\n" +
-                "In production, RedotPay Connect would now convert your crypto " +
+                "In production, this button would convert your crypto " +
                 "to fiat and settle to the landlord's merchant account."
             );
-
             closeModal();
         }
 
@@ -466,40 +532,5 @@ cat > index.html << 'HTMLEOF'
             if (e.target.id === "rentModal") closeModal();
         });
     </script>
-<div id="paypal-button-container" style="max-width:400px;margin:20px auto;"></div>
-<script>
-  paypal.Buttons({
-    createOrder: async () => {
-      const res = await fetch('/api/paypal/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rentalId: 'demo-001', amount: '49.99', currency: 'USD' })
-      });
-      const data = await res.json();
-      if (!data.id) throw new Error('create-order failed: ' + JSON.stringify(data));
-      return data.id;
-    },
-    onApprove: async (data) => {
-      const res = await fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: data.orderID, rentalId: 'demo-001' })
-      });
-      const result = await res.json();
-      if (result.success) {
-        alert('Оплачено! Capture ID: ' + result.captureId);
-      } else {
-        alert('Ошибка: ' + JSON.stringify(result));
-      }
-    },
-    onError: (err) => {
-      console.error('PayPal error:', err);
-      alert('PayPal error: ' + err);
-    }
-  }).render('#paypal-button-container');
-</script>
 </body>
 </html>
-HTMLEOF
-
-echo "✅ index.html перезаписан с fallback HTTPS → HTTP"
