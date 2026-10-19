@@ -22,7 +22,8 @@
             margin: 0 auto;
         }
         h1 { color: #1e40af; margin-bottom: 8px; }
-        .caption { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+        .caption { color: #6b7280; font-size: 14px; margin-bottom: 4px; }
+        .sub-caption { color: #10b981; font-size: 13px; font-weight: 600; margin-bottom: 24px; }
 
         .wallet-bar {
             background: #eff6ff;
@@ -191,6 +192,7 @@
 <body>
     <h1>🚗 RentalRide AI Agent</h1>
     <p class="caption">Verifiable car rental search · Stylus + DeepSeek</p>
+    <p class="sub-caption">Payment options: Crypto (MetaMask) or PayPal</p>
 
     <div class="wallet-bar">
         <span class="wallet-address" id="walletStatus">Wallet not connected</span>
@@ -229,7 +231,7 @@
             </div>
 
             <div class="pay-tabs">
-                <button class="pay-tab active" data-tab="crypto" onclick="switchPayTab('crypto')">💳 Crypto (RedotPay)</button>
+                <button class="pay-tab active" data-tab="crypto" onclick="switchPayTab('crypto')">💳 Crypto (MetaMask)</button>
                 <button class="pay-tab" data-tab="paypal" onclick="switchPayTab('paypal')">🅿️ PayPal</button>
             </div>
 
@@ -237,8 +239,7 @@
             <div class="pay-panel active" id="panel-crypto">
                 <div class="modal-note">
                     ⚠️ <strong>Demo mode.</strong> In production, this button would open
-                    the RedotPay Connect payment dialog to convert crypto to fiat
-                    and settle to the landlord's merchant account.
+                    the payment dialog to convert crypto to fiat and settle to the landlord's merchant account.
                 </div>
                 <div class="modal-actions">
                     <button class="btn-secondary" onclick="closeModal()">Cancel</button>
@@ -521,7 +522,7 @@
                 "Car: " + pendingBooking.brand + "\n" +
                 "Price: " + pendingBooking.pricePerDay + " USDC/day\n" +
                 "Wallet: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4) + "\n\n" +
-                "In production, RedotPay Connect would now convert your crypto " +
+                "In production, this button would convert your crypto " +
                 "to fiat and settle to the landlord's merchant account."
             );
             closeModal();
