@@ -118,9 +118,11 @@
             background: #fff;
             border-radius: 16px;
             padding: 28px;
-            max-width: 480px;
+            max-width: 520px;
             width: 100%;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .modal h2 { color: #1e40af; margin-bottom: 16px; font-size: 22px; }
         .modal-row {
@@ -133,6 +135,36 @@
         .modal-row:last-of-type { border-bottom: none; }
         .modal-row .label { color: #6b7280; }
         .modal-row .value { color: #111827; font-weight: 600; }
+
+        /* Payment method tabs */
+        .pay-tabs {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .pay-tab {
+            padding: 10px 16px;
+            background: transparent;
+            color: #6b7280;
+            border: none;
+            border-bottom: 2px solid transparent;
+            border-radius: 0;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: -1px;
+        }
+        .pay-tab:hover:not(.active) { color: #1e40af; background: transparent; }
+        .pay-tab.active {
+            color: #1e40af;
+            border-bottom-color: #1e40af;
+            background: transparent;
+        }
+
+        .pay-panel { display: none; padding: 12px 0; }
+        .pay-panel.active { display: block; }
+
         .modal-note {
             background: #fef3c7;
             border: 1px solid #fde68a;
@@ -140,7 +172,7 @@
             padding: 12px 16px;
             border-radius: 8px;
             font-size: 13px;
-            margin: 16px 0;
+            margin: 12px 0;
             line-height: 1.5;
         }
         .modal-actions {
@@ -152,13 +184,8 @@
         .btn-secondary { background: #e5e7eb; color: #374151; }
         .btn-secondary:hover { background: #d1d5db; }
 
-        .paypal-section {
-            margin-top: 32px;
-            padding-top: 24px;
-            border-top: 1px solid #e5e7eb;
-        }
-        .paypal-section h2 { color: #1e40af; margin-bottom: 12px; font-size: 20px; }
-        .paypal-section p { color: #6b7280; font-size: 14px; margin-bottom: 16px; }
+        #paypal-button-container { min-height: 50px; margin-top: 12px; }
+        #paypal-status { margin-top: 8px; font-size: 13px; color: #6b7280; }
     </style>
 </head>
 <body>
@@ -184,6 +211,7 @@
     <div id="error" class="error" style="display:none;"></div>
     <div id="loading" class="loading" style="display:none;">Analyzing your request…</div>
 
+    <!-- Rent modal with payment method tabs -->
     <div class="modal-backdrop" id="rentModal">
         <div class="modal">
             <h2>💳 Confirm rental</h2>
@@ -200,35 +228,44 @@
                 <span class="value" id="modalWallet">—</span>
             </div>
 
-            <div class="modal-note">
-                ⚠️ <strong>Demo mode.</strong> In production, this button would open
-                the RedotPay Connect payment dialog to convert crypto to fiat
-                and settle to the landlord's merchant account.
+            <div class="pay-tabs">
+                <button class="pay-tab active" data-tab="crypto" onclick="switchPayTab('crypto')">💳 Crypto (RedotPay)</button>
+                <button class="pay-tab" data-tab="paypal" onclick="switchPayTab('paypal')">🅿️ PayPal</button>
             </div>
 
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-                <button onclick="confirmBooking()">Confirm booking</button>
+            <!-- Crypto panel -->
+            <div class="pay-panel active" id="panel-crypto">
+                <div class="modal-note">
+                    ⚠️ <strong>Demo mode.</strong> In production, this button would open
+                    the RedotPay Connect payment dialog to convert crypto to fiat
+                    and settle to the landlord's merchant account.
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button onclick="confirmBooking()">Confirm booking (Crypto)</button>
+                </div>
+            </div>
+
+            <!-- PayPal panel -->
+            <div class="pay-panel" id="panel-paypal">
+                <p style="font-size:14px;color:#6b7280;margin-bottom:12px;">
+                    Pay with PayPal Sandbox (test card: 4012888888881881, 12/2030, CVV 123).
+                </p>
+                <div id="paypal-button-container"></div>
+                <div id="paypal-status"></div>
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- PayPal Section -->
-    <div class="paypal-section">
-        <h2>💳 Pay with PayPal</h2>
-        <p>Test payment via PayPal Sandbox — 49.99 USD for demo-001.</p>
-        <div id="paypal-button-container" style="max-width:400px;"></div>
-        <div id="paypal-status" style="margin-top:12px;font-size:14px;color:#6b7280;"></div>
-    </div>
-
     <script>
         // ─── Configuration ───
-        // PayPal API base (ngrok tunnel to VPS Java backend on :8083)
         const PAYPAL_API_BASE = (window.location.hostname === 'mafsc.github.io')
             ? 'https://1b6d-194-5-152-242.ngrok-free.app'
-            : '';  // relative path when served from VPS
+            : '';
 
-        // AI Agent backend (Flask on :5050)
         const BACKEND_URL_HTTPS = "https://194-5-152-242.nip.io";
         const BACKEND_URL_HTTP  = "http://194.5.152.242:5050";
         let   BACKEND_URL       = BACKEND_URL_HTTPS;
@@ -248,6 +285,7 @@
         let contract = null;
         let pendingBooking = null;
         let backendResolved = false;
+        let paypalButtonsRendered = false;
 
         // ─── Fetch with timeout ───
         async function fetchWithTimeout(url, options = {}) {
@@ -260,71 +298,40 @@
             }
         }
 
-        // ─── Detect working backend URL (Flask AI agent) ───
         async function resolveBackendUrl() {
             if (backendResolved) return BACKEND_URL;
-
             try {
                 const r = await fetchWithTimeout(BACKEND_URL_HTTPS + "/api/health", { method: "GET" });
-                if (r.ok) {
-                    BACKEND_URL = BACKEND_URL_HTTPS;
-                    backendResolved = true;
-                    console.log("Backend resolved: HTTPS");
-                    return BACKEND_URL;
-                }
-            } catch (e) {
-                console.warn("HTTPS backend unavailable, trying HTTP...", e);
-            }
-
+                if (r.ok) { BACKEND_URL = BACKEND_URL_HTTPS; backendResolved = true; return BACKEND_URL; }
+            } catch (e) { console.warn("HTTPS backend unavailable, trying HTTP...", e); }
             try {
                 const r = await fetchWithTimeout(BACKEND_URL_HTTP + "/api/health", { method: "GET" });
-                if (r.ok) {
-                    BACKEND_URL = BACKEND_URL_HTTP;
-                    backendResolved = true;
-                    console.log("Backend resolved: HTTP");
-                    return BACKEND_URL;
-                }
-            } catch (e) {
-                console.error("HTTP backend unavailable too", e);
-            }
-
-            throw new Error(
-                "Backend is unreachable. Make sure Flask is running on the VPS " +
-                "(http://194.5.152.242:5050 or https://194-5-152-242.nip.io)."
-            );
+                if (r.ok) { BACKEND_URL = BACKEND_URL_HTTP; backendResolved = true; return BACKEND_URL; }
+            } catch (e) { console.error("HTTP backend unavailable too", e); }
+            throw new Error("Backend is unreachable.");
         }
 
-        // ─── Wallet connection ───
+        // ─── Wallet ───
         async function connectWallet() {
-            if (!window.ethereum) {
-                alert("MetaMask not found. Please install it from metamask.io");
-                return;
-            }
+            if (!window.ethereum) { alert("MetaMask not found."); return; }
             try {
                 provider = new ethers.BrowserProvider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = await provider.getSigner();
                 userAddress = await signer.getAddress();
                 contract = new ethers.Contract(CAR_BRIDGE_ADDRESS, CAR_BRIDGE_ABI, provider);
-
                 document.getElementById("walletStatus").textContent =
                     "Connected: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
                 document.getElementById("connectBtn").textContent = "Connected";
                 document.getElementById("connectBtn").disabled = true;
-            } catch (err) {
-                alert("Connection failed: " + err.message);
-            }
+            } catch (err) { alert("Connection failed: " + err.message); }
         }
 
         // ─── Search ───
         async function findBestCar() {
             const query = document.getElementById("queryInput").value.trim();
             if (!query) return;
-
-            if (!contract) {
-                alert("Please connect MetaMask first.");
-                return;
-            }
+            if (!contract) { alert("Please connect MetaMask first."); return; }
 
             const errorDiv = document.getElementById("error");
             const loadingDiv = document.getElementById("loading");
@@ -335,16 +342,12 @@
 
             try {
                 const backendUrl = await resolveBackendUrl();
-
                 const parseResp = await fetchWithTimeout(backendUrl + "/api/parse", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ query })
                 });
-                if (!parseResp.ok) {
-                    const errText = await parseResp.text();
-                    throw new Error(`Backend error ${parseResp.status}: ${errText}`);
-                }
+                if (!parseResp.ok) throw new Error(`Backend error ${parseResp.status}`);
                 const { weights, rank } = await parseResp.json();
 
                 const total = await contract.carCount();
@@ -362,9 +365,8 @@
                     );
                     const c = await contract.cars(bestId);
                     winner = {
-                        id: Number(bestId), brand: c[0],
-                        mileage: Number(c[1]), enginePower: Number(c[2]),
-                        fuelType: c[3], year: Number(c[4]),
+                        id: Number(bestId), brand: c[0], mileage: Number(c[1]),
+                        enginePower: Number(c[2]), fuelType: c[3], year: Number(c[4]),
                         interiorScore: Number(c[5]), rating: Number(c[6]),
                         pricePerDay: Number(c[7]), score: score.toString()
                     };
@@ -382,9 +384,8 @@
                     );
                     const c = await contract.cars(bestId);
                     topCars.push({
-                        id: Number(bestId), brand: c[0],
-                        enginePower: Number(c[2]), fuelType: c[3],
-                        year: Number(c[4]), pricePerDay: Number(c[7]),
+                        id: Number(bestId), brand: c[0], enginePower: Number(c[2]),
+                        fuelType: c[3], year: Number(c[4]), pricePerDay: Number(c[7]),
                         rating: Number(c[6]), score: score.toString()
                     });
                     remainingForTop = remainingForTop.filter(id => id !== Number(bestId));
@@ -399,11 +400,9 @@
             }
         }
 
-        // ─── Render ───
         function renderResults(winner, topCars) {
             const resultsDiv = document.getElementById("results");
             const ratingStars = (winner.rating / 100).toFixed(1);
-
             let html = `
                 <div class="result-card">
                     <div class="car-name">🏆 ${winner.brand}</div>
@@ -415,7 +414,6 @@
                     <div class="car-score">Score: ${winner.score} (computed on-chain by Stylus)</div>
                 </div>
             `;
-
             if (topCars.length > 0) {
                 html += `<div class="alternatives"><strong>Top alternatives — click Rent to book:</strong>`;
                 for (const car of topCars) {
@@ -425,33 +423,25 @@
                                 <strong>${car.brand}</strong> — ${car.pricePerDay} USDC/day ·
                                 ⚡ ${car.enginePower} hp · ⭐ ${(car.rating/100).toFixed(1)}/5.0
                             </span>
-                            <button class="btn-rent" onclick="rentCar(${car.id}, '${car.brand.replace(/'/g, "\\'")}', ${car.pricePerDay})">
-                                Rent
-                            </button>
+                            <button class="btn-rent" onclick="rentCar(${car.id}, '${car.brand.replace(/'/g, "\\'")}', ${car.pricePerDay})">Rent</button>
                         </div>
                     `;
                 }
                 html += `</div>`;
             }
-
             resultsDiv.innerHTML = html;
         }
 
-        // ─── Rent (demo modal) ───
+        // ─── Rent modal ───
         function rentCar(carId, brand, pricePerDay) {
-            if (!userAddress) {
-                alert("Please connect MetaMask first.");
-                return;
-            }
-
+            if (!userAddress) { alert("Please connect MetaMask first."); return; }
             pendingBooking = { carId, brand, pricePerDay };
-
             document.getElementById("modalBrand").textContent = brand;
             document.getElementById("modalPrice").textContent = pricePerDay + " USDC/day";
             document.getElementById("modalWallet").textContent =
                 userAddress.slice(0, 6) + "…" + userAddress.slice(-4);
-
             document.getElementById("rentModal").classList.add("active");
+            switchPayTab('crypto');
         }
 
         function closeModal() {
@@ -459,71 +449,61 @@
             pendingBooking = null;
         }
 
-        function confirmBooking() {
-            if (!pendingBooking) return;
+        // ─── Payment tabs ───
+        function switchPayTab(tab) {
+            document.querySelectorAll(".pay-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+            document.querySelectorAll(".pay-panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + tab));
 
-            alert(
-                "✅ Booking confirmed (demo)\n\n" +
-                "Car: " + pendingBooking.brand + "\n" +
-                "Price: " + pendingBooking.pricePerDay + " USDC/day\n" +
-                "Wallet: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4) + "\n\n" +
-                "In production, RedotPay Connect would now convert your crypto " +
-                "to fiat and settle to the landlord's merchant account."
-            );
-
-            closeModal();
-        }
-
-        document.getElementById("rentModal").addEventListener("click", (e) => {
-            if (e.target.id === "rentModal") closeModal();
-        });
-
-        // ─── PayPal Integration ───
-        function setPayPalStatus(msg, color) {
-            const el = document.getElementById("paypal-status");
-            if (el) {
-                el.textContent = msg;
-                el.style.color = color || "#6b7280";
+            if (tab === "paypal") {
+                renderPayPalButtons();
             }
         }
 
-        if (typeof paypal !== "undefined") {
+        // ─── PayPal ───
+        function setPayPalStatus(msg, color) {
+            const el = document.getElementById("paypal-status");
+            if (el) { el.textContent = msg; el.style.color = color || "#6b7280"; }
+        }
+
+        function renderPayPalButtons() {
+            if (paypalButtonsRendered || typeof paypal === "undefined") return;
+            paypalButtonsRendered = true;
+
             paypal.Buttons({
                 createOrder: async () => {
                     setPayPalStatus("Creating order...");
-                    try {
-                        const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/create-order`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ rentalId: "demo-001", amount: "49.99", currency: "USD" })
-                        });
-                        const data = await res.json();
-                        if (!data.id) throw new Error("create-order failed: " + JSON.stringify(data));
-                        setPayPalStatus("Order created: " + data.id, "#059669");
-                        return data.id;
-                    } catch (err) {
-                        setPayPalStatus("Error: " + err.message, "#991b1b");
-                        throw err;
-                    }
+                    if (!pendingBooking) throw new Error("No booking selected");
+                    const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/create-order`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            rentalId: "car-" + pendingBooking.carId,
+                            amount: pendingBooking.pricePerDay.toFixed(2),
+                            currency: "USD"
+                        })
+                    });
+                    const data = await res.json();
+                    if (!data.id) throw new Error("create-order failed: " + JSON.stringify(data));
+                    setPayPalStatus("Order created: " + data.id, "#059669");
+                    return data.id;
                 },
                 onApprove: async (data) => {
                     setPayPalStatus("Capturing payment...");
-                    try {
-                        const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/capture-order`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ orderId: data.orderID, rentalId: "demo-001" })
-                        });
-                        const result = await res.json();
-                        if (result.success) {
-                            setPayPalStatus("Paid! Capture ID: " + result.captureId, "#059669");
-                            alert("Оплачено! Capture ID: " + result.captureId);
-                        } else {
-                            setPayPalStatus("Capture failed: " + JSON.stringify(result), "#991b1b");
-                            alert("Ошибка: " + JSON.stringify(result));
-                        }
-                    } catch (err) {
-                        setPayPalStatus("Error: " + err.message, "#991b1b");
+                    const res = await fetch(`${PAYPAL_API_BASE}/api/paypal/capture-order`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            orderId: data.orderID,
+                            rentalId: pendingBooking ? "car-" + pendingBooking.carId : "unknown"
+                        })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        setPayPalStatus("Paid! Capture ID: " + result.captureId, "#059669");
+                        alert("Оплачено через PayPal!\nCapture ID: " + result.captureId);
+                        closeModal();
+                    } else {
+                        setPayPalStatus("Capture failed: " + JSON.stringify(result), "#991b1b");
                     }
                 },
                 onError: (err) => {
@@ -531,9 +511,25 @@
                     setPayPalStatus("PayPal error: " + err, "#991b1b");
                 }
             }).render("#paypal-button-container");
-        } else {
-            setPayPalStatus("PayPal SDK not loaded (check client-id / network)", "#991b1b");
         }
+
+        // ─── Crypto confirm (demo) ───
+        function confirmBooking() {
+            if (!pendingBooking) return;
+            alert(
+                "✅ Booking confirmed (Crypto / demo)\n\n" +
+                "Car: " + pendingBooking.brand + "\n" +
+                "Price: " + pendingBooking.pricePerDay + " USDC/day\n" +
+                "Wallet: " + userAddress.slice(0, 6) + "…" + userAddress.slice(-4) + "\n\n" +
+                "In production, RedotPay Connect would now convert your crypto " +
+                "to fiat and settle to the landlord's merchant account."
+            );
+            closeModal();
+        }
+
+        document.getElementById("rentModal").addEventListener("click", (e) => {
+            if (e.target.id === "rentModal") closeModal();
+        });
     </script>
 </body>
 </html>
